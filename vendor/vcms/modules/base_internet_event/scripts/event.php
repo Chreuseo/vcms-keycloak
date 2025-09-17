@@ -41,10 +41,10 @@ $stmt->execute();
 $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
 
-if($row['intern'] && !$libAuth->isLoggedIn()){
+if($row['intern'] && !$libAuth->isLoggedin()){
 	echo '<p class="mb-4">Für diese Veranstaltung ist eine <a href="index.php?pid=login">Anmeldung im Intranet</a> nötig.</p>';
 } else {
-	if($libAuth->isLoggedIn()){
+	if($libAuth->isLoggedin()){
 		if(isset($_POST['changeanmeldenstate']) && $_POST['changeanmeldenstate'] != ''){
 			// event in future?
 			if(date('Y-m-d H:i:s') < $row['datum']){

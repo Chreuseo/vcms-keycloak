@@ -50,7 +50,7 @@ class LibSecurityManager{
 			return true;
 		} else { //internal page?
 			//not logged in?
-			if(!$libAuth->isLoggedIn()){
+			if(!$libAuth->isLoggedin()){
 				return false;
 			}
 
