@@ -16,8 +16,21 @@ You should have received a copy of the GNU General Public License
 along with VCMS. If not, see <http://www.gnu.org/licenses/>.
 */
 
-if(!is_object($libGlobal))
-	exit();
+if(!is_object($libGlobal)) exit();
+
+// Bei aktivem Keycloak: Registrierung deaktivieren
+if(isset($libConfig->keycloakEnabled) && $libConfig->keycloakEnabled){
+	echo '<h1>Registrierung deaktiviert</h1>';
+	echo $libString->getErrorBoxText();
+	echo $libString->getNotificationBoxText();
+	echo '<div class="panel panel-default">';
+	echo '<div class="panel-body">';
+	echo '<p>Die Selbst-Registrierung ist deaktiviert. Bitte melde Dich über Keycloak an.</p>';
+	echo '<a class="btn btn-primary" href="index.php?pid=login&amp;kc_start=1">Mit Keycloak anmelden</a>';
+	echo '</div>';
+	echo '</div>';
+	return;
+}
 
 
 /*
