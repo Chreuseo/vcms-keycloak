@@ -191,6 +191,29 @@ if($libAuth->isLoggedin()){
 				foreach($ids as $kid){ $kid=trim($kid); if($kid==='') continue; $chk=$libDb->prepare('SELECT id FROM base_person WHERE keycloak_id=:kid'); $chk->bindValue(':kid',$kid); $chk->execute(); if($chk->fetch(PDO::FETCH_ASSOC)){ $skipped++; continue; } $u=$libAuth->keycloakAdminGetUserById($kid); if(!$u){ $skipped++; continue; } $em = isset($u['email'])?strtolower(trim($u['email'])):''; $first = isset($u['firstName'])?trim($u['firstName']):''; $last = isset($u['lastName'])?trim($u['lastName']):(isset($u['username'])?trim($u['username']):''); if($em!==''){ $e=$libDb->prepare('SELECT id FROM base_person WHERE email=:email'); $e->bindValue(':email',$em); $e->execute(); $er=$e->fetch(PDO::FETCH_ASSOC); if($er){ $u2=$libDb->prepare('UPDATE base_person SET keycloak_id=:kid WHERE id=:id'); $u2->bindValue(':kid',$kid); $u2->bindValue(':id',$er['id'],PDO::PARAM_INT); $u2->execute(); $imported++; continue; } } $ins=$libDb->prepare('INSERT INTO base_person (anrede,titel,praefix,vorname,suffix,gruppe,name,email,password_hash,keycloak_id) VALUES ("","","",:vorname,"",:gruppe,:name,:email,"",:kid)'); $ins->bindValue(':vorname',$first); $ins->bindValue(':gruppe',$defaultGroup); $ins->bindValue(':name',$last!==''?$last:$first); $ins->bindValue(':email',$em); $ins->bindValue(':kid',$kid); $ins->execute(); $imported++; }
 				$libGlobal->notificationTexts[] = 'Import: ' . $imported . ' importiert, ' . $skipped . ' übersprungen.';
 			}
+			elseif($action === 'create_missing'){
+				// Ausgewählte lokale Nutzer (ohne KC) in Keycloak anlegen/verknüpfen
+				$ids = isset($_POST['kc_local_create_ids']) && is_array($_POST['kc_local_create_ids']) ? $_POST['kc_local_create_ids'] : array();
+				$created=0; $linkedExisting=0; $skipped=0;
+				foreach($ids as $pid){
+					$pid = intval($pid); if($pid<=0) { $skipped++; continue; }
+					$stmtP = $libDb->prepare('SELECT id, vorname, name, email, keycloak_id FROM base_person WHERE id=:id');
+					$stmtP->bindValue(':id',$pid,PDO::PARAM_INT); $stmtP->execute(); $p=$stmtP->fetch(PDO::FETCH_ASSOC);
+					if(!$p){ $skipped++; continue; }
+					if(isset($p['keycloak_id']) && trim($p['keycloak_id'])!==''){ $skipped++; continue; }
+					$email = isset($p['email'])?strtolower(trim($p['email'])):'';
+					$vor = isset($p['vorname'])?trim($p['vorname']):''; $nach = isset($p['name'])?trim($p['name']):'';
+					if($email===''){ $skipped++; continue; }
+					$remote = $libAuth->keycloakAdminGetUserByEmail($email);
+					if($remote && isset($remote['id'])){
+						$u=$libDb->prepare('UPDATE base_person SET keycloak_id=:kid WHERE id=:id'); $u->bindValue(':kid',$remote['id']); $u->bindValue(':id',$p['id'],PDO::PARAM_INT); $u->execute(); $linkedExisting++;
+					}else{
+						$newId = $libAuth->keycloakAdminCreateUser($email,$vor,$nach);
+						if($newId){ $u=$libDb->prepare('UPDATE base_person SET keycloak_id=:kid WHERE id=:id'); $u->bindValue(':kid',$newId); $u->bindValue(':id',$p['id'],PDO::PARAM_INT); $u->execute(); $created++; } else { $skipped++; }
+					}
+				}
+				$libGlobal->notificationTexts[] = 'Keycloak: ' . $created . ' angelegt, ' . $linkedExisting . ' mit vorhandenem verknüpft, ' . $skipped . ' übersprungen.';
+			}
 		}
 
 		// Panel ausgeben (immer sichtbar bei aktiviertem Keycloak)
@@ -209,6 +232,41 @@ if($libAuth->isLoggedin()){
 		echo '<button type="submit" class="btn btn-primary"'.$disabled.'><i class="fa fa-refresh" aria-hidden="true"></i> Sync starten</button>';
 		if(!$canAdminPerson){ echo '<p class="help-block mt-2">Hinweis: Für den Sync sind Internetwarte bzw. Datenpflegewarte berechtigt.</p>'; }
 		echo '</form>';
+
+		// Abschnitt: Lokal vorhanden, in Keycloak nicht verknüpft (push nach Keycloak)
+		$localMissing = array();
+		try{
+			$libAuth->ensureKeycloakColumn();
+			$stmtLM = $libDb->prepare('SELECT id, vorname, name, email FROM base_person WHERE (gruppe != "T" AND gruppe != "X" AND gruppe != "V") AND (keycloak_id IS NULL OR keycloak_id = "") AND email IS NOT NULL AND TRIM(email) <> "" ORDER BY name, vorname LIMIT 500');
+			$stmtLM->execute();
+			$localMissing = $stmtLM->fetchAll(PDO::FETCH_ASSOC);
+		}catch(\Exception $e){ /* ignore */ }
+		if(is_array($localMissing) && count($localMissing)>0){
+			echo '<hr />';
+			echo '<h4>Lokal vorhanden, in Keycloak nicht verknüpft</h4>';
+			echo '<form action="index.php?pid=intranet_admin_persons" method="post">';
+			echo '<input type="hidden" name="kc_action" value="create_missing" />';
+			echo '<div class="table-responsive">';
+			echo '<table class="table table-striped">';
+			echo '<thead><tr><th></th><th>Vorname</th><th>Nachname</th><th>E-Mail</th><th>Lokale-ID</th></tr></thead><tbody>';
+			foreach($localMissing as $lu){
+				$fn = $libString->protectXSS($lu['vorname']);
+				$ln = $libString->protectXSS($lu['name']);
+				$em = $libString->protectXSS($lu['email']);
+				$idp = intval($lu['id']);
+				echo '<tr>';
+				echo '<td><input type="checkbox" name="kc_local_create_ids[]" value="'.$idp.'"'.($canAdminPerson && $kcAdminOk?'':' disabled="disabled"').' /></td>';
+				echo '<td>'.$fn.'</td><td>'.$ln.'</td><td>'.$em.'</td><td>'.$idp.'</td>';
+				echo '</tr>';
+			}
+			echo '</tbody></table>';
+			echo '</div>';
+			echo '<button type="submit" class="btn btn-success"'.($canAdminPerson && $kcAdminOk?'':' disabled="disabled" aria-disabled="true"').'><i class="fa fa-cloud-upload" aria-hidden="true"></i> In Keycloak anlegen</button>';
+			if(!$canAdminPerson){ echo '<p class="help-block mt-2">Hinweis: Diese Aktion ist Internetwarten bzw. Datenpflegewarten vorbehalten.</p>'; }
+			echo '</form>';
+		}
+
+		// Liste: In Keycloak vorhanden, lokal nicht erfasst (Import)
 		if(isset($GLOBALS['kc_remote_new_list_admin']) && is_array($GLOBALS['kc_remote_new_list_admin']) && count($GLOBALS['kc_remote_new_list_admin'])>0){
 			echo '<hr />';
 			echo '<h4>In Keycloak vorhanden, lokal nicht erfasst</h4>';
@@ -223,18 +281,17 @@ if($libAuth->isLoggedin()){
 				$em = $libString->protectXSS($ru['email']);
 				$kid = $libString->protectXSS($ru['id']);
 				echo '<tr>';
-				echo '<td><input type="checkbox" name="kc_import_ids[]" value="'.$kid.'"'.($canAdminPerson?'':' disabled="disabled"').' /></td>';
+				echo '<td><input type="checkbox" name="kc_import_ids[]" value="'.$kid.'" /></td>';
 				echo '<td>'.$fn.'</td><td>'.$ln.'</td><td>'.$em.'</td><td><code>'.$kid.'</code></td>';
 				echo '</tr>';
 			}
 			echo '</tbody></table>';
 			echo '</div>';
-			echo '<button type="submit" class="btn btn-success"'.($canAdminPerson?'':' disabled="disabled" aria-disabled="true"').'><i class="fa fa-download" aria-hidden="true"></i> Ausgewählte importieren</button>';
-			if(!$canAdminPerson){ echo '<p class="help-block mt-2">Hinweis: Import-Aktionen sind Internetwarten bzw. Datenpflegewarten vorbehalten.</p>'; }
+			echo '<button type="submit" class="btn btn-success"><i class="fa fa-download" aria-hidden="true"></i> Ausgewählte importieren</button>';
 			echo '</form>';
 		}
-		echo '</div>';
-		echo '</div>';
+		echo '</div>'; // panel-body
+		echo '</div>'; // panel
 	}
 
 	echo '<div class="panel panel-default">';
@@ -289,7 +346,7 @@ if($libAuth->isLoggedin()){
 
 	echo '<table class="table table-condensed table-striped table-hover">';
 	echo '<thead>';
-	echo '<tr><th>Id</th><th>Präfix</th><th>Name</th><th>Suffix</th><th>Vorname</th><th>Gruppe</th><th>Status</th><th>Reception</th><th></th></tr>';
+	echo '<tr><th>Id</th><th>Präfix</th><th>Name</th><th>Suffix</th><th>Vorname</th><th>Gruppe</th><th>Status</th><th>Reception</th><th>Keycloak</th><th></th></tr>';
 	echo '</thead>';
 
 	$stmt = $libDb->prepare('SELECT * FROM base_person ORDER BY ' .$order);
@@ -305,6 +362,8 @@ if($libAuth->isLoggedin()){
 		echo '<td>' .$row['gruppe']. '</td>';
 		echo '<td>' .$row['status']. '</td>';
 		echo '<td>' .$row['semester_reception']. '</td>';
+		$hasKc = (isset($row['keycloak_id']) && trim($row['keycloak_id'])!=='');
+		echo '<td>' . ($hasKc ? 'ja' : 'nein') . '</td>';
 		echo '<td class="tool-column">';
 		echo '<a href="index.php?pid=intranet_admin_person&amp;id=' .$row['id']. '">';
 		echo '<i class="fa fa-cog" aria-hidden="true"></i>';
