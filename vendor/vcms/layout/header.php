@@ -94,7 +94,7 @@ echo '    <meta property="business:contact_data:country_name" content="' .$libCo
 
 $analyticsFilePath = $libFilesystem->getAbsolutePath('custom/analyticstracking.php');
 
-if(is_file($analyticsFilePath) && !$libAuth->isLoggedIn()){
+if(is_file($analyticsFilePath) && !$libAuth->isLoggedin()){
 	include_once($analyticsFilePath);
 }
 
