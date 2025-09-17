@@ -16,11 +16,26 @@ You should have received a copy of the GNU General Public License
 along with VCMS. If not, see <http://www.gnu.org/licenses/>.
 */
 
-if(!is_object($libGlobal) || !$libAuth->isLoggedin())
-	exit();
+// Globale VCMS-Objekte aus $GLOBALS absichern (Shim für Linter)
+$libGlobal = isset($libGlobal) ? $libGlobal : (isset($GLOBALS['libGlobal']) ? $GLOBALS['libGlobal'] : null);
+$libAuth = isset($libAuth) ? $libAuth : (isset($GLOBALS['libAuth']) ? $GLOBALS['libAuth'] : null);
+$libDb = isset($libDb) ? $libDb : (isset($GLOBALS['libDb']) ? $GLOBALS['libDb'] : null);
+$libConfig = isset($libConfig) ? $libConfig : (isset($GLOBALS['libConfig']) ? $GLOBALS['libConfig'] : null);
+$libString = isset($libString) ? $libString : (isset($GLOBALS['libString']) ? $GLOBALS['libString'] : null);
+$libForm = isset($libForm) ? $libForm : (isset($GLOBALS['libForm']) ? $GLOBALS['libForm'] : null);
+$libModuleHandler = isset($libModuleHandler) ? $libModuleHandler : (isset($GLOBALS['libModuleHandler']) ? $GLOBALS['libModuleHandler'] : null);
+$libImage = isset($libImage) ? $libImage : (isset($GLOBALS['libImage']) ? $GLOBALS['libImage'] : null);
+$libPerson = isset($libPerson) ? $libPerson : (isset($GLOBALS['libPerson']) ? $GLOBALS['libPerson'] : null);
+$libTime = isset($libTime) ? $libTime : (isset($GLOBALS['libTime']) ? $GLOBALS['libTime'] : null);
+$libAssociation = isset($libAssociation) ? $libAssociation : (isset($GLOBALS['libAssociation']) ? $GLOBALS['libAssociation'] : null);
 
-
-require('lib/persons.php');
+// Variablen, die mit bindColumn verwendet werden, initialisieren
+$empfaenger = null;
+$interessiert = null;
+$anzahlzipfel = 0;
+$anzahl = 0;
+$beschreibung = '';
+$chargierAnzahl = 0;
 
 /*
 * determine person id
@@ -63,6 +78,9 @@ if($ownprofile){
 		if($leibMitglied == $id) {
 			$libGlobal->errorTexts[] = 'Das Mitglied darf nicht von sich selbst der Leibbursch sein.';
 		} else {
+			// Bei aktivem Keycloak: E-Mail nicht serverseitig ändern
+			$incomingEmail = strtolower(trim(isset($_POST['email'])?$_POST['email']:''));
+			$effectiveEmail = (isset($libConfig->keycloakEnabled) && $libConfig->keycloakEnabled) ? $row['email'] : $incomingEmail;
 			$stmt = $libDb->prepare('UPDATE base_person SET anrede=:anrede, titel=:titel, rang=:rang, zusatz1=:zusatz1, strasse1=:strasse1, ort1=:ort1, plz1=:plz1, land1=:land1,
 				telefon1=:telefon1, zusatz2=:zusatz2, strasse2=:strasse2, ort2=:ort2, plz2=:plz2, land2=:land2,telefon2=:telefon2, mobiltelefon=:mobiltelefon,
 				email=:email, skype=:skype, webseite=:webseite, linkedin=:linkedin, webseite=:webseite, spitzname=:spitzname, beruf=:beruf, studium=:studium, leibmitglied=:leibmitglied, region1=:region1, region2=:region2, vita=:vita WHERE id=:id');
@@ -82,7 +100,7 @@ if($ownprofile){
 			$stmt->bindValue(':land2', $libString->protectXss(trim($_POST['land2'])));
 			$stmt->bindValue(':telefon2', $libString->protectXss(trim($_POST['telefon2'])));
 			$stmt->bindValue(':mobiltelefon', $libString->protectXss(trim($_POST['mobiltelefon'])));
-			$stmt->bindValue(':email', $libString->protectXss(strtolower(trim($_POST['email']))));
+			$stmt->bindValue(':email', $libString->protectXSS($effectiveEmail));
 			$stmt->bindValue(':skype', $libString->protectXss(trim($_POST['skype'])));
 			$stmt->bindValue(':webseite', $libString->protectXss(trim($_POST['webseite'])));
 			$stmt->bindValue(':linkedin', $libString->protectXss(trim($_POST['linkedin'])));
@@ -228,29 +246,39 @@ echo '</div>';
 * passwort change form
 */
 if($ownprofile){
-	echo '<h2>Passwort ändern</h2>';
+	// Bei Keycloak: Hinweis statt Formular
+	if(isset($libConfig->keycloakEnabled) && $libConfig->keycloakEnabled){
+		echo '<h2>Passwort ändern</h2>';
+		echo '<div class="panel panel-default">';
+		echo '<div class="panel-body">';
+		echo '<div class="alert alert-info">Die Passwortänderung ist hier deaktiviert. Bitte ändere Dein Passwort direkt im Single Sign-On (Keycloak).</div>';
+		echo '</div>';
+		echo '</div>';
+	} else {
+		echo '<h2>Passwort ändern</h2>';
 
- 	echo '<div class="panel panel-default">';
-	echo '<div class="panel-body">';
-	echo '<form action="index.php?pid=intranet_person&amp;id=' .$id. '" method="post" class="form-horizontal">';
-	echo '<fieldset>';
-	echo '<input type="hidden" name="formtyp" value="personpasswort" />';
+	 	echo '<div class="panel panel-default">';
+		echo '<div class="panel-body">';
+		echo '<form action="index.php?pid=intranet_person&amp;id=' .$id. '" method="post" class="form-horizontal">';
+		echo '<fieldset>';
+		echo '<input type="hidden" name="formtyp" value="personpasswort" />';
 
-	$libForm->printTextInput('oldpwd', 'Altes Passwort', '', 'password', false, true);
-	$libForm->printTextInput('newpwd1', 'Neues Passwort', '', 'password', false, true);
-	$libForm->printTextInput('newpwd2', 'Neues Passwort (Wiederholung)', '', 'password', false, true);
+		$libForm->printTextInput('oldpwd', 'Altes Passwort', '', 'password', false, true);
+		$libForm->printTextInput('newpwd1', 'Neues Passwort', '', 'password', false, true);
+		$libForm->printTextInput('newpwd2', 'Neues Passwort (Wiederholung)', '', 'password', false, true);
 
-	echo '<div class="form-group">';
-	echo '<div class="col-sm-3"></div>';
-	echo '<div class="col-sm-9">' .$libAuth->getPasswordRequirements(). '</div>';
-	echo '</div>';
+		echo '<div class="form-group">';
+		echo '<div class="col-sm-3"></div>';
+		echo '<div class="col-sm-9">' .$libAuth->getPasswordRequirements(). '</div>';
+		echo '</div>';
 
-	$libForm->printSubmitButton('<i class="fa fa-pencil-square-o" aria-hidden="true"></i> Passwort speichern');
+		$libForm->printSubmitButton('<i class="fa fa-pencil-square-o" aria-hidden="true"></i> Passwort speichern');
 
-	echo '</fieldset>';
-	echo '</form>';
-	echo '</div>';
-	echo '</div>';
+		echo '</fieldset>';
+		echo '</form>';
+		echo '</div>';
+		echo '</div>';
+	}
 
 	echo '<h2>Stammdaten ändern</h2>';
 
@@ -301,7 +329,18 @@ if($ownprofile){
 	echo '<hr />';
 
 	$libForm->printTextInput('mobiltelefon', 'Mobiltelefon', $row2['mobiltelefon']);
-	$libForm->printTextInput('email', 'E-Mail-Adresse', $row2['email'], 'email', false, true);
+	if(isset($libConfig->keycloakEnabled) && $libConfig->keycloakEnabled){
+		echo '<div class="form-group">';
+		echo '<label class="col-sm-3 control-label">E-Mail-Adresse</label>';
+		echo '<div class="col-sm-9">';
+		echo '<p class="form-control-static">' .$libString->protectXSS($row2['email']). '</p>';
+		echo '<input type="hidden" name="email" value="' .$libString->protectXSS($row2['email']). '" />';
+		echo '<p class="help-block">Die E-Mail-Adresse wird über Keycloak verwaltet und kann hier nicht geändert werden.</p>';
+		echo '</div>';
+		echo '</div>';
+	} else {
+		$libForm->printTextInput('email', 'E-Mail-Adresse', $row2['email'], 'email', false, true);
+	}
 	$libForm->printTextInput('skype', 'Skype', $row2['skype']);
 	$libForm->printTextInput('webseite', 'Webseite', $row2['webseite']);
 	$libForm->printTextInput('linkedin', 'LinkedIn', $row2['linkedin']);
@@ -499,6 +538,8 @@ function printPersonSignature($row, $ownprofile){
 
 function printPersonData($row){
 	global $libDb, $libPerson, $libTime;
+
+	$beschreibung = '';
 
 	echo '<div>';
 	echo '<div>';
@@ -754,6 +795,8 @@ function printCommunication($row){
 
 function printAssociationDetails($row){
 	global $libAssociation, $libDb, $libTime, $libModuleHandler;
+
+	$chargierAnzahl = 0;
 
 	/*
 	* others
