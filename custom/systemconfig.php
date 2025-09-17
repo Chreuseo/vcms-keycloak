@@ -64,7 +64,7 @@ class LibConfig{
 	// Erlaubte Audiences (Client IDs), leeres Array => keine Prüfung
 	var $keycloakAllowedAudiences = array('vcms'); // z.B. array('vcms-frontend')
 	// Standardgruppe für neu angelegte Benutzer (muss existieren)
-	var $keycloakDefaultGroup = 'Aktiv'; // z.B. 'Aktiv'
+	var $keycloakDefaultGroup = 'Y'; // vormals 'Aktiv' – jetzt Gruppe Y (Vereinsfreund)
 	// Optional: explizite Client-ID, falls sie nicht mit der Audience übereinstimmt
 	var $keycloakClientId = 'vcms';
 	// Optional: für vertrauliche Clients – leer lassen für Public Clients

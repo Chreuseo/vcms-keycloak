@@ -114,6 +114,7 @@ class LibAuth{
 		$stmt = $libDb->prepare('SELECT COUNT(*) AS number FROM sys_log_intranet WHERE mitglied=:mitglied AND aktion=2 AND DATEDIFF(NOW(), datum) = 0');
 		$stmt->bindValue(':mitglied', $row['id'], PDO::PARAM_INT);
 		$stmt->execute();
+		$numberOfMistakenLoginsToday = 0; // init
 		$stmt->bindColumn('number', $numberOfMistakenLoginsToday);
 		$stmt->fetch();
 
@@ -121,6 +122,7 @@ class LibAuth{
 			$stmt = $libDb->prepare('SELECT datum FROM sys_log_intranet WHERE mitglied=:mitglied AND aktion=2 AND DATEDIFF(NOW(), datum) = 0 ORDER BY datum DESC LIMIT 0,1');
 			$stmt->bindValue(':mitglied', $row['id'], PDO::PARAM_INT);
 			$stmt->execute();
+			$lastMistakenLoginToday = null; // init
 			$stmt->bindColumn('datum', $lastMistakenLoginToday);
 			$stmt->fetch();
 
@@ -183,6 +185,7 @@ class LibAuth{
 				$stmt = $libDb->prepare('SELECT internetwart FROM base_semester WHERE semester=:semester');
 				$stmt->bindValue(':semester', $semesterIterator);
 				$stmt->execute();
+				$internetwart = null; // init
 				$stmt->bindColumn('internetwart', $internetwart);
 				$stmt->fetch();
 
@@ -243,7 +246,8 @@ class LibAuth{
 		$payload = json_decode($this->base64UrlDecode($p), true);
 		$signature = $this->base64UrlDecode($s);
 		if(!is_array($header) || !is_array($payload)){ $libGlobal->errorTexts[]='Ungültiges Token.'; return false; }
-		if(($header['alg']??'') !== 'RS256'){ $libGlobal->errorTexts[]='Nicht unterstützter Algorithmus.'; return false; }
+		$alg = isset($header['alg']) ? $header['alg'] : '';
+		if($alg !== 'RS256'){ $libGlobal->errorTexts[]='Nicht unterstützter Algorithmus.'; return false; }
 
 		$now = time();
 		if(isset($payload['exp']) && $now > $payload['exp']){ $libGlobal->errorTexts[]='Token abgelaufen.'; return false; }
@@ -262,10 +266,10 @@ class LibAuth{
 			if(!$this->verifyRs256($signingInput, $signature, $publicKey)){ $libGlobal->errorTexts[]='Token Signatur ungültig.'; return false; }
 		}
 
-		$keycloakId = $payload['sub'] ?? null;
+		$keycloakId = isset($payload['sub']) ? $payload['sub'] : null;
 		$email = isset($payload['email']) ? strtolower(trim($payload['email'])) : '';
-		$vorname = $payload['given_name'] ?? '';
-		$nachname = $payload['family_name'] ?? ($payload['name'] ?? '');
+		$vorname = isset($payload['given_name']) ? $payload['given_name'] : '';
+		$nachname = isset($payload['family_name']) ? $payload['family_name'] : (isset($payload['name']) ? $payload['name'] : '');
 		if(!$keycloakId || $email===''){ $libGlobal->errorTexts[]='Erforderliche Claims fehlen.'; return false; }
 
 		// mögliche Gruppen laden
@@ -275,7 +279,7 @@ class LibAuth{
 		while($r = $stmt->fetch(PDO::FETCH_ASSOC)){
 			if($r['bezeichnung']!='T' && $r['bezeichnung']!='X' && $r['bezeichnung']!='V') $this->possibleGruppen[] = $r['bezeichnung'];
 		}
-		$defaultGroup = $libConfig->keycloakDefaultGroup ?? '';
+		$defaultGroup = isset($libConfig->keycloakDefaultGroup) ? $libConfig->keycloakDefaultGroup : '';
 		if($defaultGroup === '' && count($this->possibleGruppen)>0){
 			$defaultGroup = $this->possibleGruppen[0];
 		}
@@ -339,13 +343,13 @@ class LibAuth{
 		for($i=0;$i<20;$i++){
 			$semesterIterator = $libTime->getPreviousSemesterNameOfSemester($semesterIterator);
 			$stmt2 = $libDb->prepare('SELECT internetwart FROM base_semester WHERE semester=:sem');
-			$stmt2->bindValue(':sem',$semesterIterator); $stmt2->execute(); $stmt2->bindColumn('internetwart',$internetwart); $stmt2->fetch();
+			$stmt2->bindValue(':sem',$semesterIterator); $stmt2->execute(); $internetwart = null; $stmt2->bindColumn('internetwart',$internetwart); $stmt2->fetch();
 			if($internetwart){ if($internetwart==$row['id']) $this->aemter[]='internetwart'; break; }
 		}
 		$this->aemter = array_unique($this->aemter);
 
 		// Log
-		try { $log=$libDb->prepare('INSERT INTO sys_log_intranet (mitglied, aktion, datum, punkte, ipadresse) VALUES (:m,1,NOW(),0,:ip)'); $log->bindValue(':m',$row['id'],PDO::PARAM_INT); $log->bindValue(':ip',$_SERVER['REMOTE_ADDR']??''); $log->execute(); }catch(\Exception $e){}
+		try { $log=$libDb->prepare('INSERT INTO sys_log_intranet (mitglied, aktion, datum, punkte, ipadresse) VALUES (:m,1,NOW(),0,:ip)'); $log->bindValue(':m',$row['id'],PDO::PARAM_INT); $log->bindValue(':ip', isset($_SERVER['REMOTE_ADDR'])?$_SERVER['REMOTE_ADDR']:''); $log->execute(); }catch(\Exception $e){}
 		if(isset($libPerson)) $libPerson->setIntranetActivity($row['id'],1,1);
 		return true;
 	}
@@ -509,140 +513,135 @@ class LibAuth{
 	private function verifyRs256($data,$sig,$pub){ if(!function_exists('openssl_verify')) return false; $pubKeyRes=@openssl_pkey_get_public($pub); if(!$pubKeyRes) return false; $ok=openssl_verify($data,$sig,$pubKeyRes,OPENSSL_ALGO_SHA256)===1; @openssl_pkey_free($pubKeyRes); return $ok; }
 	private function base64UrlDecode($d){ $r=strlen($d)%4; if($r){ $d.=str_repeat('=',4-$r);} return base64_decode(strtr($d,'-_','+/')); }
 	private function ensureKeycloakColumnExists(){ global $libDb; try{ $c=$libDb->prepare("SHOW COLUMNS FROM base_person LIKE 'keycloak_id'"); $c->execute(); if(!$c->fetch(PDO::FETCH_ASSOC)){ $alt=$libDb->prepare("ALTER TABLE base_person ADD COLUMN keycloak_id VARCHAR(190) NULL DEFAULT NULL, ADD UNIQUE KEY idx_keycloak_id (keycloak_id)"); $alt->execute(); } }catch(\Exception $e){} }
+	public function ensureKeycloakColumn(){ $this->ensureKeycloakColumnExists(); }
 
+	// ---- Keycloak Admin Helper (neu) ---------------------------------------
+	private function getKeycloakRealmAdminBase(){
+		$issuer = $this->getIssuer(); if(!$issuer) return null;
+		$parts = parse_url($issuer);
+		$scheme = isset($parts['scheme']) ? $parts['scheme'] : 'http';
+		$host = isset($parts['host']) ? $parts['host'] : 'localhost';
+		$port = isset($parts['port']) ? (':'.$parts['port']) : '';
+		$path = isset($parts['path']) ? $parts['path'] : '';
+		return $scheme.'://'.$host.$port.'/admin'.$path;
+	}
+	private function getKeycloakTokenEndpoint(){ $issuer=$this->getIssuer(); if(!$issuer) return null; return rtrim($issuer,'/').'/protocol/openid-connect/token'; }
+	private function getKeycloakAdminAccessToken(){
+		global $libConfig; if(!$this->isKeycloakEnabled()) return null;
+		$tokenUrl = $this->getKeycloakTokenEndpoint(); if(!$tokenUrl) return null;
+		$clientId = '';
+		if(isset($libConfig->keycloakClientId) && $libConfig->keycloakClientId!==''){ $clientId=$libConfig->keycloakClientId; }
+		elseif(isset($libConfig->keycloakAllowedAudiences) && is_array($libConfig->keycloakAllowedAudiences) && count($libConfig->keycloakAllowedAudiences)>0){ $clientId=$libConfig->keycloakAllowedAudiences[0]; }
+		$clientSecret = isset($libConfig->keycloakClientSecret)?trim($libConfig->keycloakClientSecret):'';
+		if($clientId==='') return null;
+		if(!function_exists('curl_init')) return null;
+		$fields = array('grant_type'=>'client_credentials','client_id'=>$clientId);
+		$headers = array('Content-Type: application/x-www-form-urlencoded');
+		if($clientSecret!==''){ $fields['client_secret']=$clientSecret; }
+		$ch=curl_init($tokenUrl);
+		curl_setopt($ch,CURLOPT_POST,true);
+		curl_setopt($ch,CURLOPT_POSTFIELDS,http_build_query($fields,'&','&',PHP_QUERY_RFC3986));
+		curl_setopt($ch,CURLOPT_RETURNTRANSFER,true);
+		curl_setopt($ch,CURLOPT_HTTPHEADER,$headers);
+		curl_setopt($ch,CURLOPT_TIMEOUT,15);
+		$resp=curl_exec($ch); $code=curl_getinfo($ch,CURLINFO_HTTP_CODE); curl_close($ch);
+		if($resp===false || $code!==200) return null;
+		$data=json_decode($resp,true); return isset($data['access_token'])?$data['access_token']:null;
+	}
+	private function keycloakAdminRequest($method,$path,$query=array(),$body=null){
+		$adminBase=$this->getKeycloakRealmAdminBase(); if(!$adminBase) return array(null,0,array());
+		$token=$this->getKeycloakAdminAccessToken(); if(!$token) return array(null,0,array());
+		$url=rtrim($adminBase,'/').'/'.ltrim($path,'/');
+		if(!empty($query)){ $url.='?'.http_build_query($query,'&','&',PHP_QUERY_RFC3986); }
+		$headers=array('Authorization: Bearer '.$token);
+		$ch=curl_init($url);
+		curl_setopt($ch,CURLOPT_CUSTOMREQUEST,strtoupper($method));
+		curl_setopt($ch,CURLOPT_RETURNTRANSFER,true);
+		curl_setopt($ch,CURLOPT_TIMEOUT,20);
+		curl_setopt($ch,CURLOPT_HTTPHEADER,$headers);
+		if($body!==null){ $headers[]='Content-Type: application/json'; curl_setopt($ch,CURLOPT_HTTPHEADER,$headers); curl_setopt($ch,CURLOPT_POSTFIELDS,json_encode($body)); }
+		curl_setopt($ch,CURLOPT_HEADER,true);
+		$response=curl_exec($ch);
+		if($response===false){ $code=0; $hdrs=array(); $bodyOut=null; }
+		else{
+			$code=curl_getinfo($ch,CURLINFO_HTTP_CODE);
+			$headerSize=curl_getinfo($ch,CURLINFO_HEADER_SIZE);
+			$headerPart=substr($response,0,$headerSize);
+			$bodyOut=substr($response,$headerSize);
+			$hdrs=array();
+			$lines=preg_split('/\r?\n/',$headerPart);
+			foreach($lines as $line){ if(strpos($line,':')!==false){ list($k,$v)=array_map('trim',explode(':',$line,2)); $hdrs[strtolower($k)]=$v; } }
+		}
+		curl_close($ch);
+		return array($bodyOut,$code,$hdrs);
+	}
+	public function keycloakAdminAvailable(){ return $this->getKeycloakAdminAccessToken() ? true : false; }
+	public function keycloakAdminGetUserById($userId){ list($resp,$code,$hdrs)= $this->keycloakAdminRequest('GET','users/'.rawurlencode($userId)); if($code===200){ return json_decode($resp,true); } return null; }
+	public function keycloakAdminGetUserByEmail($email){ $email=trim(strtolower($email)); if($email==='') return null; list($resp,$code,$hdrs)= $this->keycloakAdminRequest('GET','users',array('email'=>$email,'exact'=>'true')); if($code===200){ $arr=json_decode($resp,true); if(is_array($arr) && count($arr)>0) return $arr[0]; } return null; }
+	public function keycloakAdminListUsers($max=200,$first=0){ list($resp,$code,$hdrs)= $this->keycloakAdminRequest('GET','users',array('max'=>$max,'first'=>$first)); if($code===200){ $arr=json_decode($resp,true); return is_array($arr)?$arr:array(); } return array(); }
+	public function keycloakAdminCreateUser($email,$firstName,$lastName){
+		$email=trim(strtolower($email)); $firstName=trim($firstName); $lastName=trim($lastName);
+		$payload=array('email'=>$email,'username'=>$email,'enabled'=>true,'firstName'=>$firstName,'lastName'=>$lastName);
+		list(,$code,$hdrs)= $this->keycloakAdminRequest('POST','users',array(),$payload);
+		if($code===201 && isset($hdrs['location'])){
+			$loc=$hdrs['location']; $m=array();
+			if(preg_match('~/users/([^/]+)$~',$loc,$m)) return $m[1];
+		}
+		return null;
+	}
+	// -----------------------------------------------------------------------
+	// --- Kompatible Getter & Login-Status ---
+	function isLoggedin(){
+		return ($this->isLoggedIn && is_numeric($this->id) && $this->id > 0 && $this->gruppe != '' && in_array($this->gruppe, $this->possibleGruppen));
+	}
+	function getId(){ return $this->id; }
+	function getGruppe(){ return $this->gruppe; }
+	function getAemter(){ return $this->aemter; }
+	function getVorname(){ return $this->vorname; }
+	function getNachname(){ return $this->nachname; }
+	function getAnrede(){ return $this->anrede; }
+	function getTitel(){ return $this->titel; }
+	function getPraefix(){ return $this->praefix; }
+	function getSuffix(){ return $this->suffix; }
+
+	// --- Passwort-Utilities (für Registrierung/Prüfung) ---
+	function isValidPassword($password){
+		// min. 10 Zeichen, mind. 1 Ziffer, 1 Kleinbuchstabe, 1 Großbuchstabe, keine Leerzeichen
+		return (bool)preg_match("/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?!.*\s).{10,}$/", trim($password));
+	}
+	function getPasswordRequirements(){
+		return 'Das Passwort muss aus mindestens 10 Zeichen bestehen, mit mindestens einer Ziffer, mindestens einem Kleinbuchstaben und mindestens einem Großbuchstaben. Leerzeichen sind nicht erlaubt.';
+	}
 	function encryptPassword($password){
-		$phpassHasher = new \phpass\PasswordHash(12, FALSE);
+		$phpassHasher = new \phpass\PasswordHash(12, false);
 		return $phpassHasher->HashPassword($password);
 	}
-
+	function checkPassword($password, $storedHash){
+		$password = trim($password); $storedHash = trim($storedHash);
+		if($password !== '' && $storedHash !== ''){
+			$phpassHasher = new \phpass\PasswordHash(12, false);
+			return $phpassHasher->CheckPassword($password, $storedHash);
+		}
+		return false;
+	}
 	function savePassword($personId, $newPassword, $quiet = false, $checkIsValidPassword = true){
 		global $libGlobal, $libDb;
-
-		//1. validation of person id
-		if(!is_numeric($personId)){
-			return false;
-		}
-
-		//2. validation of password
+		if(!is_numeric($personId)) return false;
 		$newPassword = trim($newPassword);
-
-		//a. empty password
-		if($newPassword == ''){
-			if(!$quiet){
-				$libGlobal->errorTexts[] = 'Das neue Passwort ist leer.';
-			}
-
+		if($newPassword === ''){
+			if(!$quiet){ $libGlobal->errorTexts[] = 'Das neue Passwort ist leer.'; }
 			return false;
 		}
-
-		//b. invalid password
-		if($checkIsValidPassword){
-			if(!$this->isValidPassword($newPassword)){
-				if(!$quiet){
-					$libGlobal->errorTexts[] = 'Das neue Passwort ist nicht komplex genug. '. $this->getPasswordRequirements();
-				}
-
-				return false;
-			}
+		if($checkIsValidPassword && !$this->isValidPassword($newPassword)){
+			if(!$quiet){ $libGlobal->errorTexts[] = 'Das neue Passwort ist nicht komplex genug. '. $this->getPasswordRequirements(); }
+			return false;
 		}
-
-		//3. generate hash from password
 		$passwdHash = $this->encryptPassword($newPassword);
-
-		//4. save hash
 		$stmt = $libDb->prepare('UPDATE base_person SET password_hash = :password_hash WHERE id = :id');
 		$stmt->bindValue(':password_hash', $passwdHash);
 		$stmt->bindValue(':id', $personId, PDO::PARAM_INT);
 		$stmt->execute();
-
-		if(!$quiet){
-			$libGlobal->notificationTexts[] = 'Das Passwort wurde gespeichert.';
-		}
-
+		if(!$quiet){ $libGlobal->notificationTexts[] = 'Das Passwort wurde gespeichert.'; }
 		return true;
-	}
-
-	function checkPassword($password, $storedHash){
-		$password = trim($password);
-		$storedHash = trim($storedHash);
-
-		// check by BCrypt
-		if($password != '' && $storedHash != ''){
-			$phpassHasher = new \phpass\PasswordHash(12, FALSE);
-			return $phpassHasher->CheckPassword($password, $storedHash);
-		}
-
-		return false;
-	}
-	function checkPasswordForPerson($personId, $password){
-		global $libDb;
-
-		if(!is_numeric($personId)){
-			return false;
-		}
-
-		$stmt = $libDb->prepare('SELECT password_hash FROM base_person WHERE id = :id');
-		$stmt->bindValue(':id', $personId, PDO::PARAM_INT);
-		$stmt->execute();
-		$row = $stmt->fetch(PDO::FETCH_ASSOC);
-
-		return $this->checkPassword($password, $row['password_hash']);
-	}
-
-	function isValidPassword($password){
-		//min 1 Ziffer, min 1 Kleinbuchstabe, min 1 Großbuchstabe, kein Leerzeichen, min 10 Zeichen
-		return preg_match("/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?!.*\s).{10,}$/", trim($password));
-	}
-
-	function getPasswordRequirements(){
-		return 'Das Passwort muss aus mindestens 10 Zeichen bestehen, mit mindestens einer Ziffer, mindestens einem Kleinbuchstaben und mindestens einem Großbuchstaben. Leerzeichen sind nicht erlaubt.';
-	}
-
-	//-------------------------------------------------------------------------
-
-	function getId(){
-		return $this->id;
-	}
-
-	function getAnrede(){
-		return $this->anrede;
-	}
-
-	function getTitel(){
-		return $this->titel;
-	}
-
-	function getVorname(){
-		return $this->vorname;
-	}
-
-	function getPraefix(){
-		return $this->praefix;
-	}
-
-	function getNachname(){
-		return $this->nachname;
-	}
-
-	function getSuffix(){
-		return $this->suffix;
-	}
-
-	function getGruppe(){
-		return $this->gruppe;
-	}
-
-	function getAemter(){
-		return $this->aemter;
-	}
-
-	function isLoggedin(){
-		if($this->isLoggedIn && is_numeric($this->id) &&
-				$this->id > 0 && $this->gruppe != '' &&
-				in_array($this->gruppe, $this->possibleGruppen)){
-			return true;
-		} else {
-			return false;
-		}
 	}
 }
