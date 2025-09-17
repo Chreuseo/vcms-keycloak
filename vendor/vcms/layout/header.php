@@ -28,6 +28,34 @@ echo '    <script src="vendor/scrollreveal/scrollreveal.min.js"></script>' . PHP
 echo '    <script src="vendor/vcms/styles/gallery/modal.js"></script>' . PHP_EOL;
 echo '    <script src="vendor/vcms/styles/screen.js"></script>' . PHP_EOL;
 
+// Bei aktivem Keycloak: Hash-Token automatisch an Server posten und Fehler anzeigen
+if(isset($libConfig->keycloakEnabled) && $libConfig->keycloakEnabled){
+	echo "    <script>\n";
+	echo "    (function(){\n";
+	echo "      try {\n";
+	echo "        if(window.location.hash){\n";
+	echo "          var hash = window.location.hash.substring(1);\n";
+	echo "          var params = {};\n";
+	echo "          hash.split('&').forEach(function(p){ var parts=p.split('='); if(parts.length===2){ params[decodeURIComponent(parts[0])] = decodeURIComponent(parts[1]); } });\n";
+	echo "          if(params['access_token']){\n";
+	echo "            if(window.history && window.history.replaceState){ window.history.replaceState(null, document.title, window.location.pathname + window.location.search); }\n";
+	echo "            var f = document.createElement('form'); f.method='POST'; f.action=window.location.pathname + window.location.search;\n";
+	echo "            var inp = document.createElement('input'); inp.type='hidden'; inp.name='kc_token'; inp.value=params['access_token']; f.appendChild(inp);\n";
+	echo "            document.body.appendChild(f); f.submit();\n";
+	echo "          } else if(params['error']){\n";
+	echo "            // Fehler sichtbar machen\n";
+	echo "            var wrap = document.getElementById('container') || document.body;\n";
+	echo "            var d = document.createElement('div'); d.className='alert alert-warning';\n";
+	echo "            var msg = 'Single Sign-On Fehler: ' + params['error'] + (params['error_description'] ? ' – ' + params['error_description'] : '');\n";
+	echo "            d.textContent = msg;\n";
+	echo "            wrap.insertBefore(d, wrap.firstChild);\n";
+	echo "          }\n";
+	echo "        }\n";
+	echo "      } catch(e){}\n";
+	echo "    })();\n";
+	echo "    </script>\n";
+}
+
 if(is_array($libGlobal->module->getHeaderStrings())){
 	foreach($libGlobal->module->getHeaderStrings() as $headerString){
 		echo '    ' .$headerString. PHP_EOL;
