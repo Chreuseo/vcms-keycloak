@@ -315,6 +315,28 @@ class LibAuth{
 		if(!$row || !isset($row['id'])){ $libGlobal->errorTexts[]='Keycloak Benutzer konnte nicht ermittelt werden.'; return false; }
 		if(!in_array($row['gruppe'], $this->possibleGruppen)){ $libGlobal->errorTexts[]='Benutzergruppe nicht erlaubt.'; return false; }
 
+		// E-Mail-Sync: Falls Token-E-Mail von DB abweicht, lokal aktualisieren (Konflikte vermeiden)
+		try{
+			$normalizedDbEmail = isset($row['email']) ? strtolower(trim($row['email'])) : '';
+			if($email !== '' && $email !== $normalizedDbEmail){
+				$chk = $libDb->prepare('SELECT id FROM base_person WHERE email = :email AND id <> :id LIMIT 1');
+				$chk->bindValue(':email',$email);
+				$chk->bindValue(':id',$row['id'],PDO::PARAM_INT);
+				$chk->execute();
+				$conflict = $chk->fetch(PDO::FETCH_ASSOC);
+				if(!$conflict){
+					$upd = $libDb->prepare('UPDATE base_person SET email = :email WHERE id = :id');
+					$upd->bindValue(':email',$email);
+					$upd->bindValue(':id',$row['id'],PDO::PARAM_INT);
+					$upd->execute();
+					$row['email'] = $email; // lokales Row-Abbild aktualisieren
+				} else {
+					// optionaler Hinweis, aber Login darf fortgesetzt werden
+					$libGlobal->notificationTexts[] = 'Hinweis: E-Mail aus Keycloak (' . $email . ') konnte nicht übernommen werden, da bereits lokal vergeben.';
+				}
+			}
+		}catch(\Exception $e){ /* still allow login */ }
+
 		// Benutzer Zustand setzen
 		$this->id = $row['id'];
 		$this->anrede = $row['anrede'];
@@ -429,7 +451,7 @@ class LibAuth{
 		if($response===false){ $libGlobal->errorTexts[]='Keycloak Token-Anfrage fehlgeschlagen: '.$curlErr; return false; }
 		$data = json_decode($response, true);
 		if($httpCode!==200){
-			$err = isset($data['error_description']) ? $data['error_description'] : (isset($data['error'])?$data['error']:'Unbekannter Fehler');
+			$err = isset($data['error_description']) ? $data['error_description'] : (isset($data['error']) ? $data['error'] : 'Unbekannter Fehler');
 			// Zusatzhinweis bei 401: deutet meist auf einen als Confidential konfigurierten Client hin. Entweder Secret in systemconfig.php setzen (keycloakClientSecret) und keycloakClientAuthMethod=post|basic passend wählen oder den Client in Keycloak auf Public umstellen.
 			if($httpCode===401){
 				$hint = ' Hinweis: 401 weist häufig auf einen als Confidential konfigurierten Client hin. Entweder Secret in systemconfig.php setzen (keycloakClientSecret) und keycloakClientAuthMethod=post|basic passend wählen oder den Client in Keycloak auf Public umstellen.';
