@@ -16,6 +16,17 @@ You should have received a copy of the GNU General Public License
 along with VCMS. If not, see <http://www.gnu.org/licenses/>.
 */
 
+// Globale VCMS-Objekte aus $GLOBALS absichern (Shim für Linter)
+$libGlobal = isset($libGlobal) ? $libGlobal : (isset($GLOBALS['libGlobal']) ? $GLOBALS['libGlobal'] : null);
+$libAuth = isset($libAuth) ? $libAuth : (isset($GLOBALS['libAuth']) ? $GLOBALS['libAuth'] : null);
+$libDb = isset($libDb) ? $libDb : (isset($GLOBALS['libDb']) ? $GLOBALS['libDb'] : null);
+$libConfig = isset($libConfig) ? $libConfig : (isset($GLOBALS['libConfig']) ? $GLOBALS['libConfig'] : null);
+$libString = isset($libString) ? $libString : (isset($GLOBALS['libString']) ? $GLOBALS['libString'] : null);
+$libForm = isset($libForm) ? $libForm : (isset($GLOBALS['libForm']) ? $GLOBALS['libForm'] : null);
+$libTime = isset($libTime) ? $libTime : (isset($GLOBALS['libTime']) ? $GLOBALS['libTime'] : null);
+$libPerson = isset($libPerson) ? $libPerson : (isset($GLOBALS['libPerson']) ? $GLOBALS['libPerson'] : null);
+$libImage = isset($libImage) ? $libImage : (isset($GLOBALS['libImage']) ? $GLOBALS['libImage'] : null);
+
 if(!is_object($libGlobal) || !$libAuth->isLoggedin())
 	exit();
 
@@ -49,8 +60,11 @@ if($libAuth->isLoggedin()){
 
 	//Ist der Bearbeiter ein Internetwart oder Datenpflegewart? Dann need-to-know
 	if(in_array('internetwart', $libAuth->getAemter()) || in_array('datenpflegewart', $libAuth->getAemter())){
-		//dann auch die sensiblen Felder bearbeiten
-		$felder = array_merge($felder, array('gruppe', 'password_hash'));
+		//dann auch die sensiblen Felder bearbeiten – Gruppe nur wenn Keycloak deaktiviert ist
+		if(!(isset($libConfig->keycloakEnabled) && $libConfig->keycloakEnabled)){
+			$felder = array_merge($felder, array('gruppe'));
+		}
+		$felder = array_merge($felder, array('password_hash'));
 	}
 
 	//Ist der Bearbeiter ein Internetwart, Datenpflegewart, Scriptor oder Kassierer? Dann need-to-know
@@ -111,7 +125,10 @@ if($libAuth->isLoggedin()){
 
 		updateAdresseStand('base_person', 'datum_adresse1_stand', $mgarray['id']);
 		updateAdresseStand('base_person', 'datum_adresse2_stand', $mgarray['id']);
-		updateGruppeStand($mgarray['id']);
+		// Gruppe-Stand nur pflegen, wenn Keycloak nicht aktiv ist
+		if(!(isset($libConfig->keycloakEnabled) && $libConfig->keycloakEnabled)){
+			updateGruppeStand($mgarray['id']);
+		}
 
 		//wenn ein Ehepartner angegeben wird, muss bei diesem dieses Mitglied auch als Ehepartner eingetragen werden
 		updateCorrespondingEhepartner($_REQUEST['heirat_partner'], $mgarray['id']);
@@ -137,8 +154,11 @@ if($libAuth->isLoggedin()){
 			updateAdresseStand('base_person', 'datum_adresse2_stand', $mgarray['id']);
 		}
 
-		if(isset($_REQUEST['gruppe']) && $_REQUEST['gruppe'] != $mgarray['gruppe']){
-			updateGruppeStand($mgarray['id']);
+		// Gruppe-Stand nur pflegen, wenn Keycloak nicht aktiv ist
+		if(!(isset($libConfig->keycloakEnabled) && $libConfig->keycloakEnabled)){
+			if(isset($_REQUEST['gruppe']) && $_REQUEST['gruppe'] != $mgarray['gruppe']){
+				updateGruppeStand($mgarray['id']);
+			}
 		}
 
 		//wenn ein Ehepartner angegeben wird, muss bei diesem dieses Mitglied auch als Ehepartner eingetragen werden
@@ -302,7 +322,34 @@ if($libAuth->isLoggedin()){
 
 	//nur Internetwart darf an sensible Daten
 	if(in_array('internetwart', $libAuth->getAemter()) || in_array('datenpflegewart', $libAuth->getAemter())){
-		$libForm->printGruppeDropDownBox('gruppe', 'Gruppe', $mgarray['gruppe'], false);
+		if(isset($libConfig->keycloakEnabled) && $libConfig->keycloakEnabled){
+			// Gruppe gesperrt anzeigen (Code - Beschreibung)
+			$grpCode = isset($mgarray['gruppe']) ? trim($mgarray['gruppe']) : '';
+			$grpLabel = $grpCode;
+			if($grpCode !== ''){
+				try{
+					$stmtG = $libDb->prepare('SELECT beschreibung FROM base_gruppe WHERE bezeichnung=:bez LIMIT 1');
+					$stmtG->bindValue(':bez', $grpCode);
+					$stmtG->execute();
+					$descr = '';
+					$stmtG->bindColumn('beschreibung', $descr);
+					$stmtG->fetch();
+					$descr = trim((string)$descr);
+					if($descr !== '' && strcasecmp($descr, $grpCode) !== 0){
+						$grpLabel = $grpCode . ' - ' . $descr;
+					}
+				}catch(\Exception $e){ /* ignore */ }
+			}
+			echo '<div class="form-group">';
+			echo '<label class="col-sm-3 control-label">Gruppe</label>';
+			echo '<div class="col-sm-9">';
+			echo '<p class="form-control-static">' .$libString->protectXSS($grpLabel). '</p>';
+			echo '<p class="help-block">Die Gruppenzuordnung wird über Keycloak verwaltet und kann hier nicht geändert werden.</p>';
+			echo '</div>';
+			echo '</div>';
+		} else {
+			$libForm->printGruppeDropDownBox('gruppe', 'Gruppe', $mgarray['gruppe'], false);
+		}
 		$libForm->printTextInput('datum_gruppe_stand', 'Stand', $mgarray['datum_gruppe_stand'], 'date', true);
 		$libForm->printTextInput('password_hash', 'Passwort-Hash', $mgarray['password_hash']);
 	}
