@@ -611,7 +611,54 @@ class LibAuth{
 		}
 		return null;
 	}
+
+	// --- NEU: Gruppen-APIs --------------------------------------------------
+	public function keycloakAdminListGroups(){
+		list($resp,$code,) = $this->keycloakAdminRequest('GET','groups');
+		if($code===200){ $arr=json_decode($resp,true); return is_array($arr)?$arr:array(); }
+		return array();
+	}
+	public function keycloakAdminGetGroupByName($name){
+		$name = trim($name);
+		if($name==='') return null;
+		// Versuche exakte Suche per Query, ansonsten lokal filtern
+		list($resp,$code,) = $this->keycloakAdminRequest('GET','groups',array('search'=>$name));
+		if($code===200){
+			$items = json_decode($resp,true);
+			if(is_array($items)){
+				foreach($items as $g){ if(isset($g['name']) && $g['name']===$name) return $g; }
+			}
+		}
+		// Fallback: alle auflisten und exakten Treffer suchen
+		$all = $this->keycloakAdminListGroups();
+		foreach($all as $g){ if(isset($g['name']) && $g['name']===$name) return $g; }
+		return null;
+	}
+	public function keycloakAdminCreateGroup($name){
+		$name = trim($name);
+		if($name==='') return null;
+		list(,$code,$hdrs) = $this->keycloakAdminRequest('POST','groups',array(),array('name'=>$name));
+		if($code===201 && isset($hdrs['location'])){
+			$loc=$hdrs['location']; $m=array();
+			if(preg_match('~/groups/([^/]+)$~',$loc,$m)) return $m[1];
+		}
+		return null;
+	}
+	public function keycloakAdminGetUserGroups($userId){
+		list($resp,$code,) = $this->keycloakAdminRequest('GET','users/'.rawurlencode($userId).'/groups');
+		if($code===200){ $arr=json_decode($resp,true); return is_array($arr)?$arr:array(); }
+		return array();
+	}
+	public function keycloakAdminAddUserToGroup($userId,$groupId){
+		list(,$code,) = $this->keycloakAdminRequest('PUT','users/'.rawurlencode($userId).'/groups/'.rawurlencode($groupId));
+		return $code===204 || $code===201;
+	}
+	public function keycloakAdminRemoveUserFromGroup($userId,$groupId){
+		list(,$code,) = $this->keycloakAdminRequest('DELETE','users/'.rawurlencode($userId).'/groups/'.rawurlencode($groupId));
+		return $code===204;
+	}
 	// -----------------------------------------------------------------------
+
 	// --- Kompatible Getter & Login-Status ---
 	function isLoggedin(){
 		return ($this->isLoggedIn && is_numeric($this->id) && $this->id > 0 && $this->gruppe != '' && in_array($this->gruppe, $this->possibleGruppen));

@@ -132,14 +132,32 @@ if($libAuth->isLoggedin()){
 			$action = $_POST['kc_action'];
 			if($action === 'scan'){
 				$autoCreate = isset($_POST['kc_create_missing']) && $_POST['kc_create_missing'] == '1';
-				$updated=0; $linked=0; $createdRemote=0;
+				$updated=0; $linked=0; $createdRemote=0; $groupSetRemote=0; $groupUpdatedLocal=0; $groupsEnsured=0;
 				// Lokale Personen laden (gültige Gruppen)
-				$stmtAll = $libDb->prepare("SELECT id, vorname, name, email, keycloak_id FROM base_person WHERE (gruppe != 'T' AND gruppe != 'X' AND gruppe != 'V') OR gruppe IS NULL");
+				$stmtAll = $libDb->prepare("SELECT id, vorname, name, email, gruppe, keycloak_id FROM base_person WHERE (gruppe != 'T' AND gruppe != 'X' AND gruppe != 'V') OR gruppe IS NULL");
 				$stmtAll->execute();
 				$locals = $stmtAll->fetchAll(PDO::FETCH_ASSOC);
 				$localEmails = array(); $localByKc = array();
 				foreach($locals as $loc){ if(isset($loc['email']) && $loc['email']!=='') $localEmails[strtolower($loc['email'])]=$loc; if(isset($loc['keycloak_id']) && $loc['keycloak_id']!=='') $localByKc[$loc['keycloak_id']]=$loc; }
-				// a) Update via keycloak_id
+
+				// a0) Alle lokalen Gruppen (VOLLE NAMEN) in Keycloak sicherstellen und Mapping laden
+				$validCodes = array(); $nameByCode = array(); $codeByName = array();
+				try{
+					$stmtG = $libDb->prepare("SELECT bezeichnung, beschreibung FROM base_gruppe WHERE bezeichnung NOT IN ('T','X','V')");
+					$stmtG->execute();
+					while($gr = $stmtG->fetch(PDO::FETCH_ASSOC)){
+						$code = trim($gr['bezeichnung']); $full = trim($gr['beschreibung']); if($code==='') continue; if($full==='') $full=$code; // Fallback
+						$validCodes[] = $code; $nameByCode[$code]=$full; if(!isset($codeByName[$full])) $codeByName[$full]=$code;
+					}
+				}catch(\Exception $e){ $validCodes = array('F','B','P','Y'); $nameByCode = array('F'=>'Fuchs','B'=>'Bursch','P'=>'Philister','Y'=>'Vereinsfreund'); foreach($nameByCode as $c=>$n){ $codeByName[$n]=$c; } }
+				$kcGroupIdByName = array();
+				foreach($nameByCode as $code=>$fullName){
+					$g = $libAuth->keycloakAdminGetGroupByName($fullName);
+					if(!$g || !isset($g['id'])){ $newId = $libAuth->keycloakAdminCreateGroup($fullName); if($newId){ $kcGroupIdByName[$fullName] = $newId; $groupsEnsured++; } }
+					else { $kcGroupIdByName[$fullName] = $g['id']; }
+				}
+
+				// a) Update via keycloak_id (Namen/E-Mail) + Gruppenübernahme
 				foreach($locals as $loc){
 					$kid = isset($loc['keycloak_id']) ? trim($loc['keycloak_id']) : '';
 					if($kid !== ''){
@@ -153,6 +171,28 @@ if($libAuth->isLoggedin()){
 							if($last!=='' && $last!=$loc['name']) $need=true;
 							if($email!=='' && $email!=strtolower(trim($loc['email']))) $need=true;
 							if($need){ $u=$libDb->prepare('UPDATE base_person SET vorname=:v, name=:n, email=:e WHERE id=:id'); $u->bindValue(':v',$first!==''?$first:$loc['vorname']); $u->bindValue(':n',$last!==''?$last:$loc['name']); $u->bindValue(':e',$email!==''?$email:$loc['email']); $u->bindValue(':id',$loc['id'],PDO::PARAM_INT); $u->execute(); $updated++; }
+
+							// Gruppen übernehmen/setzen (Remote-Gruppennamen = volle Namen)
+							$remoteGroups = $libAuth->keycloakAdminGetUserGroups($kid);
+							$recognizedCodes = array();
+							foreach($remoteGroups as $rg){ if(isset($rg['name']) && isset($codeByName[$rg['name']])){ $recognizedCodes[] = $codeByName[$rg['name']] ; } }
+							$recognizedCodes = array_values(array_intersect($recognizedCodes, $validCodes));
+							$localGroupCode = isset($loc['gruppe'])?trim($loc['gruppe']):'';
+							if(count($recognizedCodes)===1){
+								$kcCode = $recognizedCodes[0];
+								if($kcCode !== '' && $kcCode !== $localGroupCode){
+									$u=$libDb->prepare('UPDATE base_person SET gruppe=:g WHERE id=:id');
+									$u->bindValue(':g',$kcCode); $u->bindValue(':id',$loc['id'],PDO::PARAM_INT); $u->execute(); $groupUpdatedLocal++;
+								}
+							} else if(count($recognizedCodes)===0){
+								// Keine Gruppe in KC -> lokale (falls vorhanden) in KC setzen
+								if($localGroupCode!=='' && in_array($localGroupCode,$validCodes)){
+									$fullName = isset($nameByCode[$localGroupCode]) ? $nameByCode[$localGroupCode] : $localGroupCode;
+									$gid = isset($kcGroupIdByName[$fullName]) ? $kcGroupIdByName[$fullName] : null;
+									if(!$gid){ $g=$libAuth->keycloakAdminGetGroupByName($fullName); if($g&&isset($g['id'])) $gid=$g['id']; }
+									if($gid){ if($libAuth->keycloakAdminAddUserToGroup($kid,$gid)) $groupSetRemote++; }
+								}
+							}
 						}
 					}
 				}
@@ -163,14 +203,27 @@ if($libAuth->isLoggedin()){
 						$remote = $email!=='' ? $libAuth->keycloakAdminGetUserByEmail($email) : null;
 						if($remote && isset($remote['id'])){
 							$u = $libDb->prepare('UPDATE base_person SET keycloak_id=:kid WHERE id=:id'); $u->bindValue(':kid',$remote['id']); $u->bindValue(':id',$loc['id'],PDO::PARAM_INT); $u->execute(); $linked++;
+							// ggf. Gruppe in KC setzen, wenn leer
+							$localCode = isset($loc['gruppe'])?trim($loc['gruppe']):''; if($localCode!=='' && in_array($localCode,$validCodes)){
+								$uGroups = $libAuth->keycloakAdminGetUserGroups($remote['id']);
+								if(is_array($uGroups) && count($uGroups)===0){ $fullName = isset($nameByCode[$localCode])?$nameByCode[$localCode]:$localCode; $gid = isset($kcGroupIdByName[$fullName])?$kcGroupIdByName[$fullName]:null; if(!$gid){ $g=$libAuth->keycloakAdminGetGroupByName($fullName); if($g&&isset($g['id'])) $gid=$g['id']; }
+									if($gid){ if($libAuth->keycloakAdminAddUserToGroup($remote['id'],$gid)) $groupSetRemote++; }
+								}
+							}
 						}else if($autoCreate && $email!==''){
 							$first = isset($loc['vorname'])?trim($loc['vorname']):''; $last = isset($loc['name'])?trim($loc['name']):'';
 							$newId = $libAuth->keycloakAdminCreateUser($email,$first,$last);
-							if($newId){ $u = $libDb->prepare('UPDATE base_person SET keycloak_id=:kid WHERE id=:id'); $u->bindValue(':kid',$newId); $u->bindValue(':id',$loc['id'],PDO::PARAM_INT); $u->execute(); $createdRemote++; }
+							if($newId){ $u = $libDb->prepare('UPDATE base_person SET keycloak_id=:kid WHERE id=:id'); $u->bindValue(':kid',$newId); $u->bindValue(':id',$loc['id'],PDO::PARAM_INT); $u->execute(); $createdRemote++;
+								// neu angelegte Nutzer direkt der lokalen Gruppe zuordnen
+								$localCode = isset($loc['gruppe'])?trim($loc['gruppe']):''; if($localCode!=='' && in_array($localCode,$validCodes)){
+									$fullName = isset($nameByCode[$localCode])?$nameByCode[$localCode]:$localCode; $gid = isset($kcGroupIdByName[$fullName])?$kcGroupIdByName[$fullName]:null; if(!$gid){ $g=$libAuth->keycloakAdminGetGroupByName($fullName); if($g&&isset($g['id'])) $gid=$g['id']; }
+									if($gid){ if($libAuth->keycloakAdminAddUserToGroup($newId,$gid)) $groupSetRemote++; }
+								}
+							}
 						}
 					}
 				}
-				$libGlobal->notificationTexts[] = 'Keycloak-Sync: ' . $updated . ' aktualisiert, ' . $linked . ' verknüpft, ' . $createdRemote . ' in Keycloak angelegt.';
+				$libGlobal->notificationTexts[] = 'Keycloak-Sync: ' . $updated . ' aktualisiert, ' . $linked . ' verknüpft, ' . $createdRemote . ' in Keycloak angelegt, ' . $groupUpdatedLocal . ' Gruppen lokal übernommen, ' . $groupSetRemote . ' Gruppen in Keycloak gesetzt, ' . $groupsEnsured . ' Gruppen in Keycloak angelegt.';
 
 				// c) Neue KC-Nutzer finden
 				$kc_remote_new_list_admin = array(); $seenEmails = array_change_key_case($localEmails, CASE_LOWER); $seenByKid = $localByKc;
@@ -188,16 +241,19 @@ if($libAuth->isLoggedin()){
 				$imported=0; $skipped=0;
 				$defaultGroup = isset($libConfig->keycloakDefaultGroup)?$libConfig->keycloakDefaultGroup:'';
 				if($defaultGroup===''){ $stmtG=$libDb->prepare('SELECT bezeichnung FROM base_gruppe WHERE bezeichnung NOT IN ("T","X","V") ORDER BY bezeichnung LIMIT 1'); $stmtG->execute(); $rowG=$stmtG->fetch(PDO::FETCH_ASSOC); $defaultGroup = $rowG ? $rowG['bezeichnung'] : 'Y'; }
-				foreach($ids as $kid){ $kid=trim($kid); if($kid==='') continue; $chk=$libDb->prepare('SELECT id FROM base_person WHERE keycloak_id=:kid'); $chk->bindValue(':kid',$kid); $chk->execute(); if($chk->fetch(PDO::FETCH_ASSOC)){ $skipped++; continue; } $u=$libAuth->keycloakAdminGetUserById($kid); if(!$u){ $skipped++; continue; } $em = isset($u['email'])?strtolower(trim($u['email'])):''; $first = isset($u['firstName'])?trim($u['firstName']):''; $last = isset($u['lastName'])?trim($u['lastName']):(isset($u['username'])?trim($u['username']):''); if($em!==''){ $e=$libDb->prepare('SELECT id FROM base_person WHERE email=:email'); $e->bindValue(':email',$em); $e->execute(); $er=$e->fetch(PDO::FETCH_ASSOC); if($er){ $u2=$libDb->prepare('UPDATE base_person SET keycloak_id=:kid WHERE id=:id'); $u2->bindValue(':kid',$kid); $u2->bindValue(':id',$er['id'],PDO::PARAM_INT); $u2->execute(); $imported++; continue; } } $ins=$libDb->prepare('INSERT INTO base_person (anrede,titel,praefix,vorname,suffix,gruppe,name,email,password_hash,keycloak_id) VALUES ("","","",:vorname,"",:gruppe,:name,:email,"",:kid)'); $ins->bindValue(':vorname',$first); $ins->bindValue(':gruppe',$defaultGroup); $ins->bindValue(':name',$last!==''?$last:$first); $ins->bindValue(':email',$em); $ins->bindValue(':kid',$kid); $ins->execute(); $imported++; }
+				foreach($ids as $kid){ $kid=trim($kid); if($kid==='') continue; $chk=$libDb->prepare('SELECT id FROM base_person WHERE keycloak_id=:kid'); $chk->bindValue(':kid',$kid); $chk->execute(); if($chk->fetch(PDO::FETCH_ASSOC)){ $skipped++; continue; } $u=$libAuth->keycloakAdminGetUserById($kid); if(!$u){ $skipped++; continue; } $em = isset($u['email'])?strtolower(trim($u['email'])):''; $first = isset($u['firstName'])?trim($u['firstName']):''; $last = isset($u['lastName'])?trim($u['lastName']):(isset($u['username'])?trim($u['username']):''); if($em!==''){ $e=$libDb->prepare('SELECT id, gruppe FROM base_person WHERE email=:email'); $e->bindValue(':email',$em); $e->execute(); $er=$e->fetch(PDO::FETCH_ASSOC); if($er){ $u2=$libDb->prepare('UPDATE base_person SET keycloak_id=:kid WHERE id=:id'); $u2->bindValue(':kid',$kid); $u2->bindValue(':id',$er['id'],PDO::PARAM_INT); $u2->execute(); $imported++; continue; } } $ins=$libDb->prepare('INSERT INTO base_person (anrede,titel,praefix,vorname,suffix,gruppe,name,email,password_hash,keycloak_id) VALUES ("","","",:vorname,"",:gruppe,:name,:email,"",:kid)'); $ins->bindValue(':vorname',$first); $ins->bindValue(':gruppe',$defaultGroup); $ins->bindValue(':name',$last!==''?$last:$first); $ins->bindValue(':email',$em); $ins->bindValue(':kid',$kid); $ins->execute(); $imported++; }
 				$libGlobal->notificationTexts[] = 'Import: ' . $imported . ' importiert, ' . $skipped . ' übersprungen.';
 			}
 			elseif($action === 'create_missing'){
 				// Ausgewählte lokale Nutzer (ohne KC) in Keycloak anlegen/verknüpfen
 				$ids = isset($_POST['kc_local_create_ids']) && is_array($_POST['kc_local_create_ids']) ? $_POST['kc_local_create_ids'] : array();
-				$created=0; $linkedExisting=0; $skipped=0;
+				$created=0; $linkedExisting=0; $skipped=0; $groupSetRemote2=0;
+				// Mapping der Gruppen laden
+				$validCodes2 = array(); $nameByCode2 = array();
+				try{ $stmtG2=$libDb->prepare("SELECT bezeichnung, beschreibung FROM base_gruppe WHERE bezeichnung NOT IN ('T','X','V')"); $stmtG2->execute(); while($gr=$stmtG2->fetch(PDO::FETCH_ASSOC)){ $c=trim($gr['bezeichnung']); $n=trim($gr['beschreibung']); if($c==='') continue; if($n==='') $n=$c; $validCodes2[]=$c; $nameByCode2[$c]=$n; } }catch(\Exception $e){ $validCodes2=array('F','B','P','Y'); $nameByCode2=array('F'=>'Fuchs','B'=>'Bursch','P'=>'Philister','Y'=>'Vereinsfreund'); }
 				foreach($ids as $pid){
 					$pid = intval($pid); if($pid<=0) { $skipped++; continue; }
-					$stmtP = $libDb->prepare('SELECT id, vorname, name, email, keycloak_id FROM base_person WHERE id=:id');
+					$stmtP = $libDb->prepare('SELECT id, vorname, name, email, gruppe, keycloak_id FROM base_person WHERE id=:id');
 					$stmtP->bindValue(':id',$pid,PDO::PARAM_INT); $stmtP->execute(); $p=$stmtP->fetch(PDO::FETCH_ASSOC);
 					if(!$p){ $skipped++; continue; }
 					if(isset($p['keycloak_id']) && trim($p['keycloak_id'])!==''){ $skipped++; continue; }
@@ -207,12 +263,15 @@ if($libAuth->isLoggedin()){
 					$remote = $libAuth->keycloakAdminGetUserByEmail($email);
 					if($remote && isset($remote['id'])){
 						$u=$libDb->prepare('UPDATE base_person SET keycloak_id=:kid WHERE id=:id'); $u->bindValue(':kid',$remote['id']); $u->bindValue(':id',$p['id'],PDO::PARAM_INT); $u->execute(); $linkedExisting++;
+						// Falls noch keine Gruppe in KC -> lokale zuordnen (über vollen Namen)
+						$uGroups = $libAuth->keycloakAdminGetUserGroups($remote['id']); if(is_array($uGroups) && count($uGroups)===0){ $lg = isset($p['gruppe'])?trim($p['gruppe']):''; if($lg!=='' && in_array($lg,$validCodes2)){ $fullName = isset($nameByCode2[$lg])?$nameByCode2[$lg]:$lg; $g=$libAuth->keycloakAdminGetGroupByName($fullName); if(!$g||!isset($g['id'])){ $gid=$libAuth->keycloakAdminCreateGroup($fullName); } else { $gid=$g['id']; } if(!empty($gid)){ if($libAuth->keycloakAdminAddUserToGroup($remote['id'],$gid)) $groupSetRemote2++; } }
+						}
 					}else{
 						$newId = $libAuth->keycloakAdminCreateUser($email,$vor,$nach);
-						if($newId){ $u=$libDb->prepare('UPDATE base_person SET keycloak_id=:kid WHERE id=:id'); $u->bindValue(':kid',$newId); $u->bindValue(':id',$p['id'],PDO::PARAM_INT); $u->execute(); $created++; } else { $skipped++; }
+						if($newId){ $u=$libDb->prepare('UPDATE base_person SET keycloak_id=:kid WHERE id=:id'); $u->bindValue(':kid',$newId); $u->bindValue(':id',$p['id'],PDO::PARAM_INT); $u->execute(); $created++; $lg = isset($p['gruppe'])?trim($p['gruppe']):''; if($lg!=='' && in_array($lg,$validCodes2)){ $fullName = isset($nameByCode2[$lg])?$nameByCode2[$lg]:$lg; $g=$libAuth->keycloakAdminGetGroupByName($fullName); if(!$g||!isset($g['id'])){ $gid=$libAuth->keycloakAdminCreateGroup($fullName); } else { $gid=$g['id']; } if(!empty($gid)){ if($libAuth->keycloakAdminAddUserToGroup($newId,$gid)) $groupSetRemote2++; } } } else { $skipped++; }
 					}
 				}
-				$libGlobal->notificationTexts[] = 'Keycloak: ' . $created . ' angelegt, ' . $linkedExisting . ' mit vorhandenem verknüpft, ' . $skipped . ' übersprungen.';
+				$libGlobal->notificationTexts[] = 'Keycloak: ' . $created . ' angelegt, ' . $linkedExisting . ' mit vorhandenem verknüpft, ' . $skipped . ' übersprungen, ' . $groupSetRemote2 . ' Gruppen zugeordnet.';
 			}
 		}
 
@@ -296,6 +355,7 @@ if($libAuth->isLoggedin()){
 
 	echo '<div class="panel panel-default">';
 	echo '<div class="panel-body">';
+
 	echo '<form action="index.php?pid=intranet_admin_persons" method="post" class="form-inline">';
 	echo '<fieldset>';
 	echo '<div class="form-group">';
