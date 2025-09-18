@@ -1,9 +1,9 @@
 <?php
 class LibConfig{
 	var $mysqlServer = 'localhost';
-	var $mysqlUser = 'vcms';
-	var $mysqlPass = 'Userpass1234567890';
-	var $mysqlDb = 'vcms';
+	var $mysqlUser = 'username';
+	var $mysqlPass = 'password';
+	var $mysqlDb = 'datenbankname';
 	var $mysqlPort = '3308';
 
 	var $verbindungName = 'K.St.V. Example';
@@ -56,19 +56,19 @@ class LibConfig{
 
 	// --- Keycloak Konfiguration (NEU) ---------------------------------------
 	// Aktiviert die JWT Keycloak Authentifizierung
-	var $keycloakEnabled = true; // auf true setzen um zu aktivieren
+	var $keycloakEnabled = false; // auf true setzen um zu aktivieren
 	// Public Key (RSA) des Realms (ohne BEGIN/END nötig – wird ergänzt)
-	var $keycloakPublicKey = 'MIIClzCCAX8CBgGZWJbtnTANBgkqhkiG9w0BAQsFADAPMQ0wCwYDVQQDDAR2Y21zMB4XDTI1MDkxNzE2NTAxMFoXDTM1MDkxNzE2NTE1MFowDzENMAsGA1UEAwwEdmNtczCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMH06J/n7DRZC1RAMn7rFt4meZOfqoj5YMjWtMQZ6G84FM5arcBUsLz0iphzdL53uty8GIE++2ADmv4nk3kOtYBJRqui6a5gUwG7LGrxI9qA6kvHlvL9bKKJOHBcwb0lAzEwkjLGbMvqOlOeuWXCoD6sWCsqV6UmXdK2FFB7U3paREE/7cNiCg+Rbvbxs/mBfkysyUPWXUbkcmR4brpDa0KiseuEcH8KmWF/6zASP8akYavGaxe2p9eWxDim6eb5wTWuDIueqCL2JqMjIuXGSVywIApWvPgRCXGBjVvh63RCmGtSSH/u4H8mvwh5eboXs6tj8mTgGPI27hPKEUKrLfkCAwEAATANBgkqhkiG9w0BAQsFAAOCAQEApfMWURnJ/iLwJuekxcluYe7h39shD8AzIWoNGw+lpwB/tMJQb41/Xl/RZ5dO0RSAxxw+w/JrFTLRdePIcOZ9X0+Ls0UA0bN+AYJUgyRJZMNwDXeHPjZKgv2gd1bg3RvChkM8nbxOzaK2ODm0PIc/jhdIR8qOanuMEOQw/edeUOBgC9iAjAQFYfwPQt/B3+OWreqE5ffvO2pDYrxBqglxINhMFwr6rufbjzlrfvrCEawxcFMmC/O6rcRIKNGhjadZCZJJ1BNMEA+BBDoCznlb+3vbV5Z8JtmvnO8HRSaUaODy6TdE1gpPDGHcEZuJYB9xZA+mh2ya0zfOIKh/vxHHlw==';
+	var $keycloakPublicKey = '';
 	// Erlaubte Issuer (Realm URL), leeres Array => keine Prüfung
-	var $keycloakAllowedIssuers = array('http://localhost:8700/realms/aktivenkasse2'); // z.B. array('https://sso.example.org/realms/Example')
+	var $keycloakAllowedIssuers = array(''); // z.B. array('https://sso.example.org/realms/Example')
 	// Erlaubte Audiences (Client IDs), leeres Array => keine Prüfung
-	var $keycloakAllowedAudiences = array('vcms'); // z.B. array('vcms-frontend')
+	var $keycloakAllowedAudiences = array(''); // z.B. array('vcms-frontend')
 	// Standardgruppe für neu angelegte Benutzer (muss existieren)
 	var $keycloakDefaultGroup = 'Y'; // vormals 'Aktiv' – jetzt Gruppe Y (Vereinsfreund)
 	// Optional: explizite Client-ID, falls sie nicht mit der Audience übereinstimmt
-	var $keycloakClientId = 'vcms';
+	var $keycloakClientId = '';
 	// Optional: für vertrauliche Clients – leer lassen für Public Clients
-	var $keycloakClientSecret = 'bbhoiYspz2nyZEYVXim4x3hu35pD8wvg';
+	var $keycloakClientSecret = '';
 	// Optional: Auth-Methode für vertrauliche Clients: 'post' (client_secret_post) oder 'basic' (client_secret_basic)
 	var $keycloakClientAuthMethod = 'post';
 	// -------------------------------------------------------------------------
