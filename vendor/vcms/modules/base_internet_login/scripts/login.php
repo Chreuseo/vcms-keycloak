@@ -24,6 +24,22 @@ if(!$libGenericStorage->attributeExistsInCurrentModule('ssl_proxy_url')){
 	$libGenericStorage->saveValueInCurrentModule('ssl_proxy_url', '');
 }
 
+// Bei aktiviertem Keycloak: Nur Button anzeigen
+if(isset($libConfig->keycloakEnabled) && $libConfig->keycloakEnabled){
+	echo '<h1>Intranet-Login</h1>';
+	echo $libString->getErrorBoxText();
+	echo $libString->getNotificationBoxText();
+
+	// Button startet serverseitige Weiterleitung (PKCE/Code-Flow)
+	echo '<div class="panel panel-default">';
+	echo '<div class="panel-body">';
+	echo '<a class="btn btn-primary" href="index.php?pid=login&amp;kc_start=1">Mit Keycloak anmelden</a>';
+	echo '</div>';
+	echo '</div>';
+	return;
+}
+
+// --- Lokaler Login (nur wenn Keycloak deaktiviert ist) ---
 
 echo '<h1>Intranet-Login</h1>';
 
@@ -31,7 +47,6 @@ echo $libString->getErrorBoxText();
 echo $libString->getNotificationBoxText();
 
 $urlPrefix = '';
-
 if($libGlobal->getSiteUrlAuthority() != ''){
 	$sslProxyUrl = $libGenericStorage->loadValueInCurrentModule('ssl_proxy_url');
 
