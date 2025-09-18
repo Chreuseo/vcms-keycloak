@@ -60,14 +60,12 @@ class LibAuth{
 
 		$this->isLoggedIn = false;
 
-		//collect potential valid groups
+		//collect potential valid groups (keine Gruppen mehr ausschließen)
 		$stmt = $libDb->prepare('SELECT bezeichnung FROM base_gruppe');
 		$stmt->execute();
 
 		while($row = $stmt->fetch(PDO::FETCH_ASSOC)){
-			if($row['bezeichnung'] != 'T' && $row['bezeichnung'] != 'X' && $row['bezeichnung'] != 'V'){
-				$this->possibleGruppen[] = $row['bezeichnung'];
-			}
+			$this->possibleGruppen[] = $row['bezeichnung'];
 		}
 
 		/*
@@ -272,12 +270,12 @@ class LibAuth{
 		$nachname = isset($payload['family_name']) ? $payload['family_name'] : (isset($payload['name']) ? $payload['name'] : '');
 		if(!$keycloakId || $email===''){ $libGlobal->errorTexts[]='Erforderliche Claims fehlen.'; return false; }
 
-		// mögliche Gruppen laden
+		// mögliche Gruppen laden (T/V/X nicht mehr ausschließen)
 		$this->possibleGruppen = array();
 		$stmt = $libDb->prepare('SELECT bezeichnung FROM base_gruppe');
 		$stmt->execute();
 		while($r = $stmt->fetch(PDO::FETCH_ASSOC)){
-			if($r['bezeichnung']!='T' && $r['bezeichnung']!='X' && $r['bezeichnung']!='V') $this->possibleGruppen[] = $r['bezeichnung'];
+			$this->possibleGruppen[] = $r['bezeichnung'];
 		}
 		$defaultGroup = isset($libConfig->keycloakDefaultGroup) ? $libConfig->keycloakDefaultGroup : '';
 		if($defaultGroup === '' && count($this->possibleGruppen)>0){

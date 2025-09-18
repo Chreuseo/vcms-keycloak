@@ -143,7 +143,7 @@ if($libAuth->isLoggedin()){
 				// a0) Alle lokalen Gruppen (VOLLE NAMEN) in Keycloak sicherstellen und Mapping laden
 				$validCodes = array(); $nameByCode = array(); $codeByName = array();
 				try{
-					$stmtG = $libDb->prepare("SELECT bezeichnung, beschreibung FROM base_gruppe WHERE bezeichnung NOT IN ('T','X','V')");
+					$stmtG = $libDb->prepare("SELECT bezeichnung, beschreibung FROM base_gruppe");
 					$stmtG->execute();
 					while($gr = $stmtG->fetch(PDO::FETCH_ASSOC)){
 						$code = trim($gr['bezeichnung']); $full = trim($gr['beschreibung']); if($code==='') continue; if($full==='') $full=$code; // Fallback
@@ -250,7 +250,7 @@ if($libAuth->isLoggedin()){
 				$created=0; $linkedExisting=0; $skipped=0; $groupSetRemote2=0;
 				// Mapping der Gruppen laden
 				$validCodes2 = array(); $nameByCode2 = array();
-				try{ $stmtG2=$libDb->prepare("SELECT bezeichnung, beschreibung FROM base_gruppe WHERE bezeichnung NOT IN ('T','X','V')"); $stmtG2->execute(); while($gr=$stmtG2->fetch(PDO::FETCH_ASSOC)){ $c=trim($gr['bezeichnung']); $n=trim($gr['beschreibung']); if($c==='') continue; if($n==='') $n=$c; $validCodes2[]=$c; $nameByCode2[$c]=$n; } }catch(\Exception $e){ $validCodes2=array('F','B','P','Y'); $nameByCode2=array('F'=>'Fuchs','B'=>'Bursch','P'=>'Philister','Y'=>'Vereinsfreund'); }
+				try{ $stmtG2=$libDb->prepare("SELECT bezeichnung, beschreibung FROM base_gruppe"); $stmtG2->execute(); while($gr=$stmtG2->fetch(PDO::FETCH_ASSOC)){ $c=trim($gr['bezeichnung']); $n=trim($gr['beschreibung']); if($c==='') continue; if($n==='') $n=$c; $validCodes2[]=$c; $nameByCode2[$c]=$n; } }catch(\Exception $e){ $validCodes2=array('F','B','P','Y'); $nameByCode2=array('F'=>'Fuchs','B'=>'Bursch','P'=>'Philister','Y'=>'Vereinsfreund'); }
 				foreach($ids as $pid){
 					$pid = intval($pid); if($pid<=0) { $skipped++; continue; }
 					$stmtP = $libDb->prepare('SELECT id, vorname, name, email, gruppe, keycloak_id FROM base_person WHERE id=:id');
