@@ -353,6 +353,16 @@ if($libAuth->isLoggedin()){
 		echo '</div>'; // panel
 	}
 
+    if(in_array('internetwart', $libAuth->getAemter()) || in_array('datenpflegewart', $libAuth->getAemter())){
+        echo '<div class="panel panel-default">';
+        echo '<div class="panel-body">';
+        echo '<div class="btn-toolbar">';
+        echo '<a href="index.php?pid=intranet_admin_person&amp;aktion=blank" class="btn btn-default">Eine neue Person anlegen</a>';
+        echo '</div>';
+        echo '</div>';
+        echo '</div>';
+    }
+
 	echo '<div class="panel panel-default">';
 	echo '<div class="panel-body">';
 

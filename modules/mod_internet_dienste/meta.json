@@ -1,0 +1,24 @@
+{
+	"moduleName": "Meine Dienste",
+	"version": 1.0,
+	"pages": [
+		{
+			"pid": "dienste",
+			"file": "services.php",
+			"directory": "scripts",
+			"title": "Meine Dienste"
+		}
+	],
+	"menuElementsInternet": [
+		{
+			"pid": "dienste",
+			"name": "Meine Dienste",
+			"type": "menu_entry",
+			"position": 35000
+		}
+	],
+	"headerStrings": [
+		"<meta name='robots' content='noindex' />"
+	]
+}
+
