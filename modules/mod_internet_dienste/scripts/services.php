@@ -70,6 +70,14 @@ $services = [
 		'icon'  => 'fa-key',
 		'external' => true,
 	],
+    [
+        'title' => 'Mitgliederverwaltung',
+        'desc' => 'Mitgliederverwaltung',
+        'url' => 'https://mitgliederverwaltung.kstv-burggraf.de',
+        'image' => 'mitgliederverwaltung.png',
+        'icon' => 'fa-users',
+        'external' => true,
+    ],
 	[
 		'title' => 'Burggraf-Cloud',
 		'desc'  => 'Nextcloud',
