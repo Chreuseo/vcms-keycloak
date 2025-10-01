@@ -55,7 +55,6 @@ if(!isset($libString)) { $libString = null; }
 
 // Optional: Auto-Geocoding deaktivieren per URL-Parameter ?geocode=0 (Standard: aktiv)
 $autoGeocode = true;
-$debugGeo = isset($_GET['debuggeo']);
 $maxPerRequest = 10; // global definieren, damit Warnbox darauf zugreifen kann
 if(isset($_GET['geocode'])){
 	$gv = strtolower(trim((string)$_GET['geocode']));
@@ -66,15 +65,25 @@ if(isset($_GET['geocode'])){
 
 // Sicherstellen, dass die Geocode-Tabelle existiert
 try {
-	$libDb->prepare("CREATE TABLE IF NOT EXISTS base_geodaten (\n\t id INT AUTO_INCREMENT PRIMARY KEY,\n\t address VARCHAR(512) NOT NULL UNIQUE,\n\t lat DOUBLE NULL,\n\t lon DOUBLE NULL,\n\t status VARCHAR(32) DEFAULT NULL,\n\t raw_json MEDIUMTEXT NULL,\n\t created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,\n\t updated_at TIMESTAMP NULL DEFAULT NULL,\n\t INDEX(status)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8")->execute();
-} catch(Exception $e){ if($debugGeo) { echo '<div class="alert alert-danger">Fehler beim Erstellen der Tabelle base_geodaten: '.htmlspecialchars($e->getMessage()).'</div>'; } }
+	$libDb->prepare("CREATE TABLE IF NOT EXISTS base_geodaten (
+		id INT AUTO_INCREMENT PRIMARY KEY,
+		address VARCHAR(512) NOT NULL UNIQUE,
+		lat DOUBLE NULL,
+		lon DOUBLE NULL,
+		status VARCHAR(32) DEFAULT NULL,
+		raw_json MEDIUMTEXT NULL,
+		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		updated_at TIMESTAMP NULL DEFAULT NULL,
+		INDEX(status)
+	) ENGINE=InnoDB DEFAULT CHARSET=utf8")->execute();
+} catch(Exception $e){ /* Debugging entfernt */ }
 
 // Prüfen ob Tabelle wirklich existiert
 $geoTableAvailable = false;
 try {
 	$chk = $libDb->prepare("SHOW TABLES LIKE 'base_geodaten'");
 	if($chk->execute() && $chk->fetch()) { $geoTableAvailable = true; }
-} catch(Exception $e){ if($debugGeo){ echo '<div class="alert alert-warning">SHOW TABLES Fehler: '.htmlspecialchars($e->getMessage()).'</div>'; } }
+} catch(Exception $e){ /* Debugging entfernt */ }
 
 // Sammle Basisdaten der Personen inkl. Adressen
 $stmt = $libDb->prepare("SELECT id, anrede, titel, rang, vorname, praefix, name, suffix, gruppe,\n    zusatz1, strasse1, ort1, plz1, land1,\n    zusatz2, strasse2, ort2, plz2, land2\n    FROM base_person\n    WHERE gruppe != 'X' AND gruppe != 'T' AND gruppe != 'C'\n");
@@ -149,17 +158,12 @@ if(!empty($addressList) && $geoTableAvailable){
 	$missingAddresses = array_values(array_diff($addressList, array_keys($addressCoords)));
 	$geocodeInfo['missing'] = count($missingAddresses);
 
-	if($debugGeo){
-		echo '<div class="alert alert-secondary" style="padding:4px 8px;">Debug: Adressen insgesamt: '.count($addressList).'</div>';
-	}
-
 	// Serverseitiges Geocoding (limit pro Request um Laufzeit & Rate-Limit zu schonen)
 	if($autoGeocode && $geocodeInfo['missing'] > 0 && function_exists('curl_init')){
 		$toGeocodeNow = array_slice($missingAddresses, 0, $maxPerRequest);
 		foreach($toGeocodeNow as $i => $addr){
 			$geoRes = vcms_server_geocode($addr, isset($libConfig->adminMail) ? $libConfig->adminMail : 'admin@example.com');
-			list($lat, $lon, $status, $raw, $httpCode) = $geoRes; // erweitert
-			if($debugGeo){ echo '<div class="alert alert-secondary" style="padding:4px 8px;">Geocode "'.htmlspecialchars($addr).'" => Status='.$status.' HTTP='.$httpCode.' '.($lat&&$lon?('('.$lat.','.$lon.')'):'').'</div>'; }
+			list($lat, $lon, $status, $raw, $httpCode) = $geoRes;
 			try {
 				$insert = $libDb->prepare("INSERT INTO base_geodaten (address, lat, lon, status, raw_json, updated_at) VALUES (:a,:lat,:lon,:s,:raw, NOW()) ON DUPLICATE KEY UPDATE lat=VALUES(lat), lon=VALUES(lon), status=VALUES(status), raw_json=VALUES(raw_json), updated_at=VALUES(updated_at)");
 				$insert->bindValue(':a', $addr, PDO::PARAM_STR);
@@ -176,7 +180,7 @@ if(!empty($addressList) && $geoTableAvailable){
 				if($status === 'ok' && $lat !== null && $lon !== null){
 					$addressCoords[$addr] = [ 'lat' => $lat, 'lon' => $lon ];
 				}
-			} catch(Exception $e){ /* Ignorieren */ }
+			} catch(Exception $e){ /* Debugging entfernt */ }
 			// Nominatim Rate Limit: 1s Pause zwischen Requests
 			if($i < count($toGeocodeNow)-1){
 				usleep(1000000); // 1 Sekunde
@@ -223,7 +227,7 @@ echo '<div id="member-map" style="height: 70vh; width: 100%; border: 1px solid #
 
 // Hinweis falls noch keine Marker vorhanden
 if($autoGeocode && $geocodeInfo['missing'] > 0 && count($addressCoords) === 0){
-	echo '<div class="alert alert-warning" style="margin-top:8px;">Es sind noch keine Geokoordinaten im Cache. Pro Seitenaufruf werden bis zu '.$maxPerRequest.' Adressen geokodiert. Bitte die Seite nach einigen Sekunden neu laden oder <a href="index.php?pid=intranet_mitglied_karte&amp;debuggeo=1">Debug anzeigen</a>, um den Fortschritt zu sehen.</div>';
+	echo '<div class="alert alert-warning" style="margin-top:8px;">Es sind noch keine Geokoordinaten im Cache. Pro Seitenaufruf werden bis zu '.$maxPerRequest.' Adressen geokodiert. Bitte die Seite nach einigen Sekunden neu laden.</div>';
 } elseif(!$autoGeocode && count($addressCoords) === 0){
 	echo '<div class="alert alert-warning" style="margin-top:8px;">Automatisches Geocoding ist deaktiviert und es liegen noch keine gecachten Geodaten vor. Aktivieren Sie das Geocoding, um Koordinaten zu erzeugen.</div>';
 }
