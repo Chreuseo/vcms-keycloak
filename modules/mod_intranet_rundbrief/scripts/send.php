@@ -188,13 +188,23 @@ if(!isset($_POST['nachricht']) || $_POST['nachricht'] == '' || !isset($_POST['su
 		}
 	}
 
-	//attachement
-	$attachementFile = '';
-	$attachementName = '';
+	//attachements
+	$attachements = array();
 
-	if(isset($_FILES['anhang']) && isset($_FILES['anhang']['tmp_name']) && isset($_FILES['anhang']['name'])){
-		$attachementFile = $_FILES['anhang']['tmp_name'];
-		$attachementName = $_FILES['anhang']['name'];
+	if(isset($_FILES['anhang']) && is_array($_FILES['anhang']['tmp_name'])){
+		for($k = 0; $k < count($_FILES['anhang']['tmp_name']); $k++){
+			if($_FILES['anhang']['tmp_name'][$k] != '' && is_file($_FILES['anhang']['tmp_name'][$k])){
+				$attachements[] = array(
+					'file' => $_FILES['anhang']['tmp_name'][$k],
+					'name' => $_FILES['anhang']['name'][$k]
+				);
+			}
+		}
+	} elseif(isset($_FILES['anhang']) && isset($_FILES['anhang']['tmp_name']) && is_file($_FILES['anhang']['tmp_name'])){
+		$attachements[] = array(
+			'file' => $_FILES['anhang']['tmp_name'],
+			'name' => $_FILES['anhang']['name']
+		);
 	}
 
 	$recipientsPerMail = 15;
@@ -207,8 +217,8 @@ if(!isset($_POST['nachricht']) || $_POST['nachricht'] == '' || !isset($_POST['su
 		echo '<hr />';
 		echo '<p class="mb-4">Sende E-Mail ' .$mailNumber;
 
-		if(is_file($attachementFile)){
-			echo ' mit Anhang';
+		if(count($attachements) > 0){
+			echo ' mit ' .count($attachements). ' Anhang/Anhängen';
 		}
 
 		echo ' an:</p>';
@@ -222,7 +232,7 @@ if(!isset($_POST['nachricht']) || $_POST['nachricht'] == '' || !isset($_POST['su
 
 		sendMail(
 			$libPerson->formatNameString($libAuth->getAnrede(), $libAuth->getTitel(), '', $libAuth->getVorname(), $libAuth->getPraefix(), $libAuth->getNachname(), $libAuth->getSuffix(), 4),
-			$subject, $email, $_POST['nachricht'], $subRecipientsArray, $attachementFile, $attachementName);
+			$subject, $email, $_POST['nachricht'], $subRecipientsArray, $attachements);
 	}
 }
 
@@ -230,7 +240,7 @@ echo $libString->getErrorBoxText();
 echo $libString->getNotificationBoxText();
 
 
-function sendMail($fromName, $subject, $replyEmail, $message, $recipientsArray, $attachementFile, $attachementName){
+function sendMail($fromName, $subject, $replyEmail, $message, $recipientsArray, $attachements){
 	global $libAuth, $libMail;
 
 	$mail = $libMail->createPHPMailer($fromName);
@@ -249,8 +259,10 @@ function sendMail($fromName, $subject, $replyEmail, $message, $recipientsArray, 
 		$mail->addBCC($recipient[0]);
 	}
 
-	if(is_file($attachementFile)){
-		$mail->addAttachment($attachementFile, $attachementName);
+	foreach($attachements as $attachement){
+		if(is_file($attachement['file'])){
+			$mail->addAttachment($attachement['file'], $attachement['name']);
+		}
 	}
 
 	if(!$mail->send()){
