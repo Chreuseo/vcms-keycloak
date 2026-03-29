@@ -95,6 +95,22 @@ $services = [
 		'external' => true,
 	],
     [
+        'title' => 'Altherrenkasse',
+        'desc' => 'Kasse der Altherren',
+        'url' => 'https://ah-kasse.kstv-burggraf.de',
+        'image' => 'aktivenkasse.png',
+        'icon' => 'fa-eur',
+        'external' => true,
+    ],
+    [
+        'title' => 'Studienfördervereinskasse',
+        'desc' => 'Kasse des Studienfördervereins',
+        'url' => 'https://sfkasse.kstv-burggraf.de',
+        'image' => 'aktivenkasse.png',
+        'icon' => 'fa-eur',
+        'external' => true,
+    ],
+    [
         'title' => 'Kartellverband (extern)',
         'desc' => 'Kartellverband katholischer deutscher Studentenvereine',
         'url' => 'https://www.kartellverband.de/login.html',

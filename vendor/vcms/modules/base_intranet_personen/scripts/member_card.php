@@ -33,7 +33,7 @@ if(!function_exists('vcms_server_geocode')){
 		if($resp === false){ $err = curl_error($ch); }
 		curl_close($ch);
 		if($code !== 200 || !$resp){
-			return [null, null, 'error', $resp?:($err??''), $code];
+			return [null, null, 'error', $resp?:(isset($err) ? $err : ''), $code];
 		}
 		$data = json_decode($resp, true);
 		if(is_array($data) && isset($data[0]['lat']) && isset($data[0]['lon'])){
@@ -135,6 +135,8 @@ while($row = $stmt->fetch(PDO::FETCH_ASSOC)){
 $addressList = array_keys($addresses);
 $geocodeInfo = [ 'total_addresses' => count($addressList), 'cached' => 0, 'missing' => 0, 'geocoded_now' => 0, 'errors' => [] ];
 $addressCoords = [];
+// Liste der fehlgeschlagenen Geokodierungen (Status ≠ 'ok')
+$failedAddresses = [];
 
 if(!empty($addressList) && $geoTableAvailable){
 	// Bereits gecachte Geodaten holen
@@ -149,6 +151,8 @@ if(!empty($addressList) && $geoTableAvailable){
 		while($r = $select->fetch(PDO::FETCH_ASSOC)){
 			if($r['lat'] !== null && $r['lon'] !== null && $r['status'] === 'ok'){
 				$addressCoords[$r['address']] = [ 'lat' => (float)$r['lat'], 'lon' => (float)$r['lon'] ];
+			} else if(isset($r['status']) && $r['status'] !== 'ok'){
+				$failedAddresses[$r['address']] = (string)$r['status'];
 			}
 		}
 	}
@@ -179,6 +183,8 @@ if(!empty($addressList) && $geoTableAvailable){
 				$insert->execute();
 				if($status === 'ok' && $lat !== null && $lon !== null){
 					$addressCoords[$addr] = [ 'lat' => $lat, 'lon' => $lon ];
+				} else {
+					$failedAddresses[$addr] = (string)$status;
 				}
 			} catch(Exception $e){ /* Debugging entfernt */ }
 			// Nominatim Rate Limit: 1s Pause zwischen Requests
@@ -230,6 +236,26 @@ if($autoGeocode && $geocodeInfo['missing'] > 0 && count($addressCoords) === 0){
 	echo '<div class="alert alert-warning" style="margin-top:8px;">Es sind noch keine Geokoordinaten im Cache. Pro Seitenaufruf werden bis zu '.$maxPerRequest.' Adressen geokodiert. Bitte die Seite nach einigen Sekunden neu laden.</div>';
 } elseif(!$autoGeocode && count($addressCoords) === 0){
 	echo '<div class="alert alert-warning" style="margin-top:8px;">Automatisches Geocoding ist deaktiviert und es liegen noch keine gecachten Geodaten vor. Aktivieren Sie das Geocoding, um Koordinaten zu erzeugen.</div>';
+}
+
+// Dezent: Liste fehlgeschlagener Geokodierungen direkt unter der Karte anzeigen (max. 10 Einträge)
+if(!empty($failedAddresses)){
+	$failedList = array_keys($failedAddresses);
+	$maxShowFailed = 10;
+	$toShow = array_slice($failedList, 0, $maxShowFailed);
+	echo '<div class="text-muted" style="margin-top:8px; font-size:12px;">';
+	echo '<span>Folgende Adressen konnten nicht geokodiert werden:</span>';
+	echo '<ul class="list-unstyled" style="margin:4px 0;">';
+	foreach($toShow as $fa){
+		$faEsc = htmlspecialchars($fa, ENT_QUOTES, 'UTF-8');
+		$sEsc = htmlspecialchars((string)$failedAddresses[$fa], ENT_QUOTES, 'UTF-8');
+		echo '<li>&ndash; '.$faEsc.'<span style="opacity:.7"> ('.$sEsc.')</span></li>';
+	}
+	echo '</ul>';
+	if(count($failedList) > $maxShowFailed){
+		echo '<div>… und '.(count($failedList)-$maxShowFailed).' weitere.</div>';
+	}
+	echo '</div>';
 }
 
 // Steuerleiste
