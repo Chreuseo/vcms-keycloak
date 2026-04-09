@@ -70,6 +70,9 @@ $row = $stmt->fetch(PDO::FETCH_ASSOC);
 if($ownprofile){
 	if(isset($_POST['formtyp']) && $_POST['formtyp'] == 'person_data'){
 		$leibMitglied = '';
+		$newStrasse1 = $libString->protectXss(trim(isset($_POST['strasse1']) ? $_POST['strasse1'] : ''));
+		$newOrt1 = $libString->protectXss(trim(isset($_POST['ort1']) ? $_POST['ort1'] : ''));
+		$newPlz1 = $libString->protectXss(trim(isset($_POST['plz1']) ? $_POST['plz1'] : ''));
 
 		if(isset($_POST['leibmitglied'])){
 			$leibMitglied = $_POST['leibmitglied'];
@@ -81,6 +84,11 @@ if($ownprofile){
 			// Bei aktivem Keycloak: E-Mail nicht serverseitig ändern
 			$incomingEmail = strtolower(trim(isset($_POST['email'])?$_POST['email']:''));
 			$effectiveEmail = (isset($libConfig->keycloakEnabled) && $libConfig->keycloakEnabled) ? $row['email'] : $incomingEmail;
+			$addressFieldsChanged = (
+				$newStrasse1 != $row['strasse1'] ||
+				$newOrt1 != $row['ort1'] ||
+				$newPlz1 != $row['plz1']
+			);
 			$stmt = $libDb->prepare('UPDATE base_person SET anrede=:anrede, titel=:titel, rang=:rang, zusatz1=:zusatz1, strasse1=:strasse1, ort1=:ort1, plz1=:plz1, land1=:land1,
 				telefon1=:telefon1, zusatz2=:zusatz2, strasse2=:strasse2, ort2=:ort2, plz2=:plz2, land2=:land2,telefon2=:telefon2, mobiltelefon=:mobiltelefon,
 				email=:email, skype=:skype, webseite=:webseite, spitzname=:spitzname, beruf=:beruf, leibmitglied=:leibmitglied, region1=:region1, region2=:region2, vita=:vita WHERE id=:id');
@@ -88,9 +96,9 @@ if($ownprofile){
 			$stmt->bindValue(':titel', $libString->protectXss(trim($_POST['titel'])));
 			$stmt->bindValue(':rang', $libString->protectXss(trim($_POST['rang'])));
 			$stmt->bindValue(':zusatz1', $libString->protectXss(trim($_POST['zusatz1'])));
-			$stmt->bindValue(':strasse1', $libString->protectXss(trim($_POST['strasse1'])));
-			$stmt->bindValue(':ort1', $libString->protectXss(trim($_POST['ort1'])));
-			$stmt->bindValue(':plz1', $libString->protectXss(trim($_POST['plz1'])));
+			$stmt->bindValue(':strasse1', $newStrasse1);
+			$stmt->bindValue(':ort1', $newOrt1);
+			$stmt->bindValue(':plz1', $newPlz1);
 			$stmt->bindValue(':land1', $libString->protectXss(trim($_POST['land1'])));
 			$stmt->bindValue(':telefon1', $libString->protectXss(trim($_POST['telefon1'])));
 			$stmt->bindValue(':zusatz2', $libString->protectXss(trim($_POST['zusatz2'])));
@@ -111,6 +119,13 @@ if($ownprofile){
 			$stmt->bindValue(':vita', $libString->protectXss(trim($_POST['vita'])));
 			$stmt->bindValue(':id', $libAuth->getId(), PDO::PARAM_INT);
 			$stmt->execute();
+
+			if(isset($libConfig->keycloakEnabled) && $libConfig->keycloakEnabled && $addressFieldsChanged && method_exists($libAuth, 'keycloakAdminSyncPersonAddressAttributes')){
+				$kcSyncOk = $libAuth->keycloakAdminSyncPersonAddressAttributes($libAuth->getId(), $newOrt1, $newStrasse1, $newPlz1);
+				if(!$kcSyncOk){
+					$libGlobal->errorTexts[] = 'Adressdaten wurden lokal gespeichert, konnten aber nicht nach Keycloak synchronisiert werden.';
+				}
+			}
 		}
 
 		//if the mailing module is installed
@@ -147,7 +162,7 @@ if($ownprofile){
 			}
 		}
 
-		if($_POST['strasse1'] != $row['strasse1'] || $_POST['ort1'] != $row['ort1'] || $_POST['plz1'] != $row['plz1'] || $_POST['land1'] != $row['land1'] || $_POST['telefon1'] != $row['telefon1']){
+		if($newStrasse1 != $row['strasse1'] || $newOrt1 != $row['ort1'] || $newPlz1 != $row['plz1'] || $_POST['land1'] != $row['land1'] || $_POST['telefon1'] != $row['telefon1']){
 			$stmt = $libDb->prepare('UPDATE base_person SET datum_adresse1_stand=NOW() WHERE id = :id');
 			$stmt->bindValue(':id', $libAuth->getId(), PDO::PARAM_INT);
 			$stmt->execute();

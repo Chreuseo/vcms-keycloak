@@ -609,6 +609,62 @@ class LibAuth{
 		}
 		return null;
 	}
+	public function keycloakAdminUpdateUserAttributes($userId, $attributes){
+		if(!is_array($attributes)) return false;
+		$userId = trim((string)$userId);
+		if($userId==='') return false;
+
+		$user = $this->keycloakAdminGetUserById($userId);
+		if(!is_array($user)) return false;
+
+		$currentAttributes = array();
+		if(isset($user['attributes']) && is_array($user['attributes'])) $currentAttributes = $user['attributes'];
+
+		foreach($attributes as $key => $value){
+			$attrKey = trim((string)$key);
+			if($attrKey==='') continue;
+			$currentAttributes[$attrKey] = array((string)$value);
+		}
+
+		$user['attributes'] = $currentAttributes;
+		list(,$code,) = $this->keycloakAdminRequest('PUT','users/'.rawurlencode($userId),array(),$user);
+		return $code===204;
+	}
+	public function keycloakAdminSyncPersonAddressAttributes($personId, $ort, $strasse, $plz){
+		global $libDb;
+		if(!$this->isKeycloakEnabled()) return false;
+		if(!$libDb || !is_numeric($personId)) return false;
+
+		$stmt = $libDb->prepare('SELECT id, email, keycloak_id FROM base_person WHERE id=:id');
+		$stmt->bindValue(':id', $personId, PDO::PARAM_INT);
+		$stmt->execute();
+		$person = $stmt->fetch(PDO::FETCH_ASSOC);
+		if(!$person) return false;
+
+		$keycloakId = isset($person['keycloak_id']) ? trim((string)$person['keycloak_id']) : '';
+		if($keycloakId===''){
+			$email = isset($person['email']) ? trim(strtolower($person['email'])) : '';
+			if($email!==''){
+				$remote = $this->keycloakAdminGetUserByEmail($email);
+				if(is_array($remote) && isset($remote['id']) && trim((string)$remote['id'])!==''){
+					$keycloakId = trim((string)$remote['id']);
+					try{
+						$u = $libDb->prepare('UPDATE base_person SET keycloak_id=:kid WHERE id=:id');
+						$u->bindValue(':kid', $keycloakId);
+						$u->bindValue(':id', $personId, PDO::PARAM_INT);
+						$u->execute();
+					}catch(\Exception $e){}
+				}
+			}
+		}
+
+		if($keycloakId==='') return false;
+		return $this->keycloakAdminUpdateUserAttributes($keycloakId, array(
+			'ort' => $ort,
+			'strasse' => $strasse,
+			'plz' => $plz
+		));
+	}
 
 	// --- NEU: Gruppen-APIs --------------------------------------------------
 	public function keycloakAdminListGroups(){
