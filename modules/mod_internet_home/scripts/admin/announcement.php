@@ -104,7 +104,6 @@ echo $libString->getErrorBoxText();
 echo $libString->getNotificationBoxText();
 
 echo '<p class="mb-4">Hier können die Daten einer Ankündigung für die Startseite bearbeitet werden. Start- und Verfallsdatum müssen so gewählt werden, dass sich der Zeitraum ergibt, in dem die Ankündigung angezeigt werden soll.</p>';
-echo '<p class="mb-4">Es können die folgenden <a href="http://de.wikipedia.org/wiki/Bbcode">BBCodes</a> verwendet werden: [b]fett[/b], [i]kursiv[/i], [url=http://www.wikipedia.de]Link[/url]</p>';
 
 
 /*
