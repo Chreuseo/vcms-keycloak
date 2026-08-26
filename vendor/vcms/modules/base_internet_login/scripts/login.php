@@ -46,19 +46,33 @@ if ($libGlobal->getSiteUrlAuthority() != '') {
     }
 }
 
-echo '<div class="card">';
-echo '<div class="card-body">';
-echo '<form action="' .$libString->protectXSS($urlPrefix). 'index.php?pid=intranet_home" method="post">';
-echo '<fieldset>';
+if (isset($libConfig->keycloakEnabled) && $libConfig->keycloakEnabled) {
+    // Show Keycloak SSO button
+    $kcStartUrl = 'index.php?kc_start=1&pid=' . rawurlencode($libGlobal->pid ?? 'login');
+    echo '<div class="card mb-3">';
+    echo '<div class="card-body">';
+    echo '<p>Single Sign-On ist aktiviert. Bitte mit deinem Identitätsanbieter anmelden.</p>';
+    echo '<a class="btn btn-primary" href="' . $libString->protectXSS($kcStartUrl) . '"><i class="fa fa-sign-in" aria-hidden="true"></i> Anmeldung über SSO</a>';
+    echo '</div>';
+    echo '</div>';
 
-$libForm->printTextInput('intranet_login_email', 'E-Mail-Adresse', '', 'email', false, true);
-$libForm->printTextInput('intranet_login_password', 'Passwort', '', 'password', false, true);
-$libForm->printSubmitButton('<i class="fa fa-sign-in" aria-hidden="true"></i> Anmelden');
+    // Optionally do not show local login form when Keycloak is enabled to avoid confusion
+    echo '<p class="text-muted">Falls Du Dich lokal anmelden möchtest, deaktiviere Keycloak in der Konfiguration.</p>';
+} else {
+    echo '<div class="card">';
+    echo '<div class="card-body">';
+    echo '<form action="' .$libString->protectXSS($urlPrefix). 'index.php?pid=intranet_home" method="post">';
+    echo '<fieldset>';
 
-echo '</fieldset>';
-echo '</form>';
-echo '</div>';
-echo '</div>';
+    $libForm->printTextInput('intranet_login_email', 'E-Mail-Adresse', '', 'email', false, true);
+    $libForm->printTextInput('intranet_login_password', 'Passwort', '', 'password', false, true);
+    $libForm->printSubmitButton('<i class="fa fa-sign-in" aria-hidden="true"></i> Anmelden');
+
+    echo '</fieldset>';
+    echo '</form>';
+    echo '</div>';
+    echo '</div>';
+}
 
 echo '<h2>Registrierung</h2>';
 echo '<p class="mb-4">Um in das Intranet zu gelangen, wird ein Zugang benötigt, der von Mitgliedern auf der <a href="index.php?pid=registration">Registrierungsseite</a> angefordert werden kann.</p>';
