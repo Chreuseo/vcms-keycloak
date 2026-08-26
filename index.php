@@ -161,6 +161,16 @@ if (!isset($_GET['pid']) || $_GET['pid'] == '') {
     $libGlobal->pid = $_GET['pid'];
 }
 
+// If Keycloak is enabled and the user requested the login page, start the KC flow automatically
+if (isset($libConfig->keycloakEnabled) && $libConfig->keycloakEnabled) {
+    if (isset($libGlobal->pid) && $libGlobal->pid === 'login') {
+        // Preserve optional pid target and start PKCE flow
+        $startUrl = 'index.php?kc_start=1&pid=' . urlencode(isset($_GET['pid']) ? $_GET['pid'] : '');
+        header('Location: ' . $startUrl, true, 302);
+        exit;
+    }
+}
+
 
 if (!$libModuleHandler->pageExists($libGlobal->pid)) {
     http_response_code(404);
