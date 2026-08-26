@@ -1,4 +1,5 @@
 <?php
+
 /*
 This file is part of VCMS.
 
@@ -16,34 +17,35 @@ You should have received a copy of the GNU General Public License
 along with VCMS. If not, see <http://www.gnu.org/licenses/>.
 */
 
-if(!is_object($libGlobal) || !$libAuth->isLoggedin())
-	exit();
+if (!is_object($libGlobal) || !$libAuth->isLoggedin()) {
+    exit();
+}
 
 
 echo '<h1>Neuer Nachrichtenbeitrag</h1>';
 
-echo '<div class="panel panel-default">';
-echo '<div class="panel-body">';
-echo '<form action="index.php?pid=intranet_news" method="post" class="form-horizontal">';
+echo '<div class="card">';
+echo '<div class="card-body">';
+echo '<form action="index.php?pid=intranet_news" method="post">';
 echo '<fieldset>';
 
 $libForm->printTextarea('text', 'Nachricht', '');
 
-echo '<div class="form-group">';
-echo '<label for="kategorie" class="col-sm-3 control-label">Kategorie</label>';
-echo '<div class="col-sm-9"><select id="kategorie" name="kategorie" class="form-control">';
+echo '<div class="row mb-3">';
+echo '<label for="category" class="col-sm-3 col-form-label">Kategorie</label>';
+echo '<div class="col-sm-9"><select id="category" name="category" class="form-select">';
 
 $stmt = $libDb->prepare('SELECT * FROM mod_news_kategorie ORDER BY bezeichnung');
 $stmt->execute();
 
-while($row = $stmt->fetch(PDO::FETCH_ASSOC)){
-	echo '<option value="' .$row['id']. '">' .$row['bezeichnung']. '</option>';
+while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+    echo '<option value="' .$row['id']. '">' .$libString->protectXSS($row['bezeichnung']). '</option>';
 }
 
 echo '</select></div>';
 echo '</div>';
 
-$libForm->printMitgliederDropDownBox('betroffenesmitglied', 'Betroffenes Mitglied', '');
+$libForm->printMembersDropDownBox('betroffenesmitglied', 'Betroffenes Mitglied', '');
 $libForm->printSubmitButton('<i class="fa fa-pencil-square-o" aria-hidden="true"></i> Beitrag speichern');
 
 echo '</fieldset>';

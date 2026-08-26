@@ -1,0 +1,102 @@
+<?php
+
+/*
+This file is part of VCMS.
+
+VCMS is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+VCMS is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with VCMS. If not, see <http://www.gnu.org/licenses/>.
+*/
+
+if (!is_object($libGlobal)) {
+    exit();
+}
+
+
+if (!function_exists('vcmsMakeDateColumnNullable')) {
+    /**
+    * Makes a date or datetime column nullable without a default and converts
+    * existing zero dates to NULL. Can be run any number of times.
+    */
+    function vcmsMakeDateColumnNullable($table, $column, $type)
+    {
+        global $libDb, $libGlobal;
+
+        $definition = vcmsGetColumnDefinition($table, $column);
+
+        if ($definition === null) {
+            return;
+        }
+
+        // Relax sql_mode so that existing zero dates survive the table copy
+        $previousSqlMode = null;
+        $stmt = $libDb->query('SELECT @@SESSION.sql_mode AS sql_mode');
+
+        if ($stmt !== false) {
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            $previousSqlMode = $row['sql_mode'];
+
+            $stmt = $libDb->prepare('SET SESSION sql_mode = :sql_mode');
+            $stmt->bindValue(':sql_mode', 'ALLOW_INVALID_DATES');
+            $stmt->execute();
+        }
+
+        if ($definition['Null'] != 'YES' || $definition['Default'] !== null) {
+            $libGlobal->notificationTexts[] = 'Aktualisiere Spalte ' .$table. '.' .$column;
+            $libDb->query('ALTER TABLE ' .$table. ' MODIFY ' .$column. ' ' .$type. ' NULL DEFAULT NULL');
+        }
+
+        // Convert zero dates to NULL; the comparison avoids the zero literal
+        $libDb->query('UPDATE ' .$table. ' SET ' .$column. ' = NULL WHERE ' .$column. " < '1000-01-01'");
+
+        if ($previousSqlMode !== null) {
+            $stmt = $libDb->prepare('SET SESSION sql_mode = :sql_mode');
+            $stmt->bindValue(':sql_mode', $previousSqlMode);
+            $stmt->execute();
+        }
+
+        // Check the result, as PDO runs in ERRMODE_SILENT and errors would otherwise stay invisible
+        $definition = vcmsGetColumnDefinition($table, $column);
+
+        if ($definition !== null && $definition['Null'] != 'YES') {
+            $libGlobal->errorTexts[] = 'Spalte ' .$table. '.' .$column. ' konnte nicht auf NULL umgestellt werden.';
+        }
+    }
+
+    /**
+    * Returns the definition of a column (Field, Type, Null, Key, Default, Extra)
+    * or null if the table or the column does not exist.
+    */
+    function vcmsGetColumnDefinition($table, $column)
+    {
+        global $libDb;
+
+        $stmt = $libDb->prepare('SHOW COLUMNS FROM ' .$table);
+
+        if ($stmt === false || !$stmt->execute()) {
+            return null;
+        }
+
+        $result = null;
+
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            if ($row['Field'] == $column) {
+                $result = $row;
+            }
+        }
+
+        return $result;
+    }
+}
+
+
+vcmsMakeDateColumnNullable('mod_chargierkalender_veranstaltung', 'datum', 'datetime');

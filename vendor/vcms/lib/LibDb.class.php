@@ -1,4 +1,5 @@
 <?php
+
 /*
 This file is part of VCMS.
 
@@ -20,194 +21,202 @@ namespace vcms;
 
 use PDO;
 use PDOException;
+use Pdo\Mysql;
 
-class LibDb{
-	var $connection;
+class LibDb
+{
+    public $connection;
 
-	function connect(){
-		global $libConfig;
+    public function connect()
+    {
+        global $libConfig;
 
-		$mysqlPort = 3306;
+        $mysqlPort = 3306;
 
-		if($libConfig->mysqlPort != ""){
-			$mysqlPort = $libConfig->mysqlPort;
+        if ($libConfig->mysqlPort != "") {
+            $mysqlPort = $libConfig->mysqlPort;
 
-			if($libConfig->mysqlServer == 'localhost'){
-				// required fix due to http://php.net/manual/de/pdo.connections.php
-				$libConfig->mysqlServer = '127.0.0.1';
-			}
-		}
+            if ($libConfig->mysqlServer == 'localhost') {
+                // required fix due to http://php.net/manual/de/pdo.connections.php
+                $libConfig->mysqlServer = '127.0.0.1';
+            }
+        }
 
-		$dsn = sprintf('mysql:host=%s;port=%s;dbname=%s;charset=utf8',
-			$libConfig->mysqlServer,
-			$mysqlPort,
-			$libConfig->mysqlDb);
+        $dsn = sprintf(
+            'mysql:host=%s;port=%s;dbname=%s;charset=utf8',
+            $libConfig->mysqlServer,
+            $mysqlPort,
+            $libConfig->mysqlDb
+        );
 
-		$options = array(PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8");
+        $options = [Mysql::ATTR_INIT_COMMAND => "SET NAMES utf8"];
 
-		try {
-			$this->connection = new PDO($dsn, $libConfig->mysqlUser, $libConfig->mysqlPass, $options);
-		} catch (PDOException $e) {
-			die('Error: the connection to the MySQL database could not be established. Probably the MySQL parameters in custom/systemconfig.php are invalid.');
-		}
-	}
+        try {
+            $this->connection = new PDO($dsn, $libConfig->mysqlUser, $libConfig->mysqlPass, $options);
+        } catch (PDOException $e) {
+            die('Error: the connection to the MySQL database could not be established. Probably the MySQL parameters in custom/systemconfig.php are invalid.');
+        }
+    }
 
-	function lastInsertId(){
-		return $this->connection->lastInsertId();
-	}
+    public function lastInsertId()
+    {
+        return $this->connection->lastInsertId();
+    }
 
-	function prepare($stmt){
-		return $this->connection->prepare($stmt);
-	}
+    public function prepare($stmt)
+    {
+        return $this->connection->prepare($stmt);
+    }
 
-	function query($stmt){
-		return $this->connection->query($stmt);
-	}
+    public function query($stmt)
+    {
+        return $this->connection->query($stmt);
+    }
 
-	function updateRow($fieldsArray, $valueArray, $table, $idArray){
-		global $libString;
+    public function updateRow($fieldsArray, $valueArray, $table, $idArray)
+    {
+        $setString = '';
 
-		$setString = '';
+        // build string of values to set
+        foreach ($fieldsArray as $field) {
+            if ($setString != '') {
+                $setString .= ',';
+            }
 
-		// build string of values to set
-		foreach($fieldsArray as $feld){
-			if($setString != ''){
-				$setString .= ',';
-			}
+            $setString .= $field.' = :'.$field;
+        }
 
-			$setString .= $feld.' = :'.$feld;
-		}
+        // build string of ids
+        $idString = '';
 
-		// build string of ids
-		$idString = '';
+        foreach ($idArray as $key => $value) {
+            if ($idString != '') {
+                $idString .= ' AND ';
+            }
 
-		foreach($idArray as $key => $value){
-			if($idString != ''){
-				$idString .= ' AND ';
-			}
+            $idString .= $key.'=:id_'.$key;
+        }
 
-			$idString .= $key.'=:id_'.$key;
-		}
+        // build update command
+        $stmt = $this->prepare('UPDATE '.$table.' SET ' .$setString. ' WHERE '.$idString);
 
-		// build update command
-		$stmt = $this->prepare('UPDATE '.$table.' SET ' .$setString. ' WHERE '.$idString);
+        // bind values
+        foreach ($fieldsArray as $field) {
+            if (!isset($valueArray[$field]) || $valueArray[$field] == '') {
+                $value = null;
+            } else {
+                $value = $valueArray[$field];
+            }
 
-		// bind values
-		foreach($fieldsArray as $feld){
-			if(!isset($valueArray[$feld]) || $valueArray[$feld] == ''){
-				$value = null;
-			} else {
-				$value = $libString->protectXSS($valueArray[$feld]);
-			}
+            $stmt->bindValue(':'.$field, $value, $this->determinePdoType($value));
+        }
 
-			$stmt->bindValue(':'.$feld, $value, $this->determinePdoType($value));
-		}
+        // bind ids
+        foreach ($idArray as $key => $value) {
+            $stmt->bindValue(':id_'.$key, $value, $this->determinePdoType($value));
+        }
 
-		// bind ids
-		foreach($idArray as $key => $value){
-			$stmt->bindValue(':id_'.$key, $value, $this->determinePdoType($value));
-		}
+        // execute
+        $stmt->execute();
 
-		// execute
-		$stmt->execute();
+        // fetch new data
+        $stmt = $this->prepare('SELECT * FROM '.$table.' WHERE '.$idString);
 
-		// fetch new data
-		$stmt = $this->prepare('SELECT * FROM '.$table.' WHERE '.$idString);
+        foreach ($idArray as $key => $value) {
+            $stmt->bindValue(':id_'.$key, $value, $this->determinePdoType($value));
+        }
 
-		foreach($idArray as $key => $value){
-			$stmt->bindValue(':id_'.$key, $value, $this->determinePdoType($value));
-		}
+        $stmt->execute();
 
-		$stmt->execute();
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
 
-		return $stmt->fetch(PDO::FETCH_ASSOC);
-	}
+    public function insertRow($fieldsArray, $valueArray, $table, $idArray)
+    {
+        $fieldsString = implode(',', $fieldsArray);
 
-	function insertRow($fieldsArray, $valueArray, $table, $idArray){
-		global $libString;
+        $valuesString = '';
 
-		$felderString = implode(',', $fieldsArray);
+        // build string of values
+        foreach ($fieldsArray as $field) {
+            if ($valuesString != '') {
+                $valuesString .= ', ';
+            }
 
-		$werteString = '';
+            $valuesString .= ':'.$field;
+        }
 
-		// build string of values
-		foreach($fieldsArray as $feld){
-			if($werteString != ''){
-				$werteString .= ', ';
-			}
+        // build insert command
+        $stmt = $this->prepare('INSERT INTO '.$table.' (' .$fieldsString. ') VALUES ('.$valuesString.')');
 
-			$werteString .= ':'.$feld;
-		}
+        // bind values
+        foreach ($fieldsArray as $field) {
+            if (!isset($valueArray[$field]) || $valueArray[$field] == '') {
+                $value = null;
+            } else {
+                $value = $valueArray[$field];
+            }
 
-		// build insert command
-		$stmt = $this->prepare('INSERT INTO '.$table.' (' .$felderString. ') VALUES ('.$werteString.')');
+            $stmt->bindValue(':'.$field, $value, $this->determinePdoType($value));
+        }
 
-		// bind values
-		foreach($fieldsArray as $feld){
-			if(!isset($valueArray[$feld]) || $valueArray[$feld] == ''){
-				$value = null;
-			} else {
-				$value = $libString->protectXSS($valueArray[$feld]);
-			}
+        // execute
+        $stmt->execute();
 
-			$stmt->bindValue(':'.$feld, $value, $this->determinePdoType($value));
-		}
+        /*
+        * fetch data
+        */
 
-		// execute
-		$stmt->execute();
+        $valueBased = true;
 
-		/*
-		* fetch data
-		*/
+        //are there values for ids?
+        foreach ($idArray as $key => $value) {
+            if ($value == '') {
+                $valueBased = false;
+            }
+        }
 
-		$valueBased = true;
+        if ($valueBased) {
+            $idString = '';
 
-		//are there values for ids?
-		foreach($idArray as $key => $value){
-			if($value == ''){
-				$valueBased = false;
-			}
-		}
+            foreach ($idArray as $key => $value) {
+                if ($idString != '') {
+                    $idString .= ' AND ';
+                }
 
-		if($valueBased){
-			$idString = '';
+                $idString .= $key.'=:id_'.$key;
+            }
 
-			foreach($idArray as $key => $value){
-				if($idString != ''){
-					$idString .= ' AND ';
-				}
+            $stmt = $this->prepare('SELECT * FROM '.$table.' WHERE '.$idString);
 
-				$idString .= $key.'=:id_'.$key;
-			}
+            foreach ($idArray as $key => $value) {
+                $stmt->bindValue(':id_'.$key, $value, $this->determinePdoType($value));
+            }
+        } else {
+            $keys = array_keys($idArray);
+            $lastInsertId = $this->lastInsertId();
 
-			$stmt = $this->prepare('SELECT * FROM '.$table.' WHERE '.$idString);
+            $stmt = $this->prepare('SELECT * FROM '.$table.' WHERE '.$keys[0].'=:lastinsert');
+            $stmt->bindValue(':lastinsert', $lastInsertId, PDO::PARAM_INT);
+        }
 
-			foreach($idArray as $key => $value){
-				$stmt->bindValue(':id_'.$key, $value, $this->determinePdoType($value));
-			}
-		} else {
-			$keys = array_keys($idArray);
-			$lastInsertId = $this->lastInsertId();
+        $stmt->execute();
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
 
-			$stmt = $this->prepare('SELECT * FROM '.$table.' WHERE '.$keys[0].'=:lastinsert');
-			$stmt->bindValue(':lastinsert', $lastInsertId, PDO::PARAM_INT);
-		}
+    public function determinePdoType($value)
+    {
+        if (is_null($value)) {
+            return PDO::PARAM_NULL;
+        } elseif (is_int($value)) {
+            return PDO::PARAM_INT;
+        } else {
+            return PDO::PARAM_STR;
+        }
+    }
 
-		$stmt->execute();
-		return $stmt->fetch(PDO::FETCH_ASSOC);
-	}
-
-	function determinePdoType($value){
-		if(is_null($value)){
-			return PDO::PARAM_NULL;
-		} elseif(is_int($value)){
-			return PDO::PARAM_INT;
-		} else {
-			return PDO::PARAM_STR;
-		}
-	}
-
-	function setErrModeWarning(){
-		$this->connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_WARNING);
-	}
+    public function setErrModeWarning()
+    {
+        $this->connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_WARNING);
+    }
 }

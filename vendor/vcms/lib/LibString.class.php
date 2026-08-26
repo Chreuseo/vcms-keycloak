@@ -1,4 +1,5 @@
 <?php
+
 /*
 This file is part of VCMS.
 
@@ -18,84 +19,125 @@ along with VCMS. If not, see <http://www.gnu.org/licenses/>.
 
 namespace vcms;
 
-class LibString{
-	function xmlentities($string){
-		return str_replace(array('&', '"', "'", '<', '>'), array('&amp;' , '&quot;', '&apos;' , '&lt;' , '&gt;'), $string);
-	}
+class LibString
+{
+    public function xmlentities($string)
+    {
+        $string = (string) $string;
 
-	function protectXSS($value){
-		return htmlspecialchars($value, ENT_NOQUOTES, 'UTF-8');
-	}
+        return str_replace(['&', '"', "'", '<', '>'], ['&amp;' , '&quot;', '&apos;' , '&lt;' , '&gt;'], $string);
+    }
 
-	function randomAlphaNumericString($len, $chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'){
-		$string = '';
+    public function protectXSS($value)
+    {
+        return htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
 
-		for ($i = 0; $i < $len; $i++){
-			$pos = random_int(0, strlen($chars)-1);
-			$string .= $chars[$pos];
-		}
+    public function randomAlphaNumericString($len, $chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')
+    {
+        $string = '';
 
-		return $string;
-	}
+        for ($i = 0; $i < $len; $i++) {
+            $pos = random_int(0, strlen($chars) - 1);
+            $string .= $chars[$pos];
+        }
 
-	function isValidEmail($email){
-		if($email != ''){
-			if(preg_match('/^([a-zA-Z0-9\.\_\-]+)@([a-zA-Z0-9\.\-]+\.[A-Za-z][A-Za-z]+)$/', $email)){
-				return true;
-			}
-		} else {
-			return false;
-		}
-	}
+        return $string;
+    }
 
-	function isValidURL($string){
-		$urlRegEx =
-			"/^" .
-			"http:\/\/" .           // http-protocol
-			"([0-9a-zA-Z-]+\.)+" .  // hostname and subdomains
-			"[a-zA-Z]{1,4}" .       // toplevel domain
-			"(\/.*)*" .             // anything with a leading / as rest of path
-			"$/";
+    public function isValidEmail($email)
+    {
+        $email = (string) $email;
 
-		if(preg_match($urlRegEx, $string)){
-			return true;
-		} else {
-			return false;
-		}
-	}
+        if ($email != '') {
+            if (preg_match('/^([a-zA-Z0-9\.\_\-]+)@([a-zA-Z0-9\.\-]+\.[A-Za-z][A-Za-z]+)$/', $email)) {
+                return true;
+            }
+        } else {
+            return false;
+        }
+    }
 
-	function getNotificationBoxText(){
-		global $libGlobal;
+    /**
+    * Ensures that a stored URL has an http(s) scheme. This way a database value
+    * cannot become a javascript: link that escaping would not catch.
+    */
+    public function assureHttpScheme($url)
+    {
+        $url = trim((string) $url);
 
-		if(isset($libGlobal->notificationTexts) && is_array($libGlobal->notificationTexts)){
-			if(count($libGlobal->notificationTexts) > 0){
-				return '<div class="alert alert-success" role="alert">'. implode('<br />', $libGlobal->notificationTexts). '</div>';
-			}
-		}
-	}
+        if ($url == '') {
+            return '';
+        }
 
-	function getErrorBoxText(){
-		global $libGlobal;
+        if (substr($url, 0, 7) != 'http://' && substr($url, 0, 8) != 'https://') {
+            $url = 'http://' .$url;
+        }
 
-		if(isset($libGlobal->errorTexts) && is_array($libGlobal->errorTexts)){
-			if(count($libGlobal->errorTexts) > 0){
-				return '<div class="alert alert-danger" role="alert">'. implode('<br />', $libGlobal->errorTexts). '</div>';
-			}
-		}
-	}
+        return $url;
+    }
 
-	function getLastInsertId($lastInsertId, $id){
-		if($lastInsertId == $id){
-			return ' last-insert-id ';
-		}
-	}
+    public function isValidURL($string)
+    {
+        $string = (string) $string;
 
-	function normalizeStreet($street){
-		$street = str_replace('str.', 'str', $street);
-	 	$street = str_replace('straße', 'str', $street);
-		$street = str_replace('Straße', 'str', $street);
-		$street = preg_replace('/[^a-zA-ZäöüÄÖÜß\s]/i', '', $street);
-		$street = trim($street);
-		return $street;
-	}
+        $urlRegEx =
+            "/^" .
+            "http:\/\/" .           // http-protocol
+            "([0-9a-zA-Z-]+\.)+" .  // hostname and subdomains
+            "[a-zA-Z]{1,4}" .       // toplevel domain
+            "(\/.*)*" .             // anything with a leading / as rest of path
+            "$/";
+
+        if (preg_match($urlRegEx, $string)) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    public function getNotificationBoxText()
+    {
+        global $libGlobal;
+
+        if (isset($libGlobal->notificationTexts) && is_array($libGlobal->notificationTexts)) {
+            if (count($libGlobal->notificationTexts) > 0) {
+                $notificationTexts = array_map([$this, 'protectXSS'], $libGlobal->notificationTexts);
+
+                return '<div class="alert alert-success" role="alert">'. implode('<br />', $notificationTexts). '</div>';
+            }
+        }
+    }
+
+    public function getErrorBoxText()
+    {
+        global $libGlobal;
+
+        if (isset($libGlobal->errorTexts) && is_array($libGlobal->errorTexts)) {
+            if (count($libGlobal->errorTexts) > 0) {
+                $errorTexts = array_map([$this, 'protectXSS'], $libGlobal->errorTexts);
+
+                return '<div class="alert alert-danger" role="alert">' . implode('<br />', $errorTexts) . '</div>';
+            }
+        }
+    }
+
+    public function getLastInsertId($lastInsertId, $id)
+    {
+        if ($lastInsertId == $id) {
+            return ' last-insert-id ';
+        }
+    }
+
+    public function normalizeStreet($street)
+    {
+        $street = (string) $street;
+
+        $street = str_replace('str.', 'str', $street);
+        $street = str_replace('straße', 'str', $street);
+        $street = str_replace('Straße', 'str', $street);
+        $street = preg_replace('/[^a-zA-ZäöüÄÖÜß\s]/i', '', $street);
+        $street = trim($street);
+        return $street;
+    }
 }

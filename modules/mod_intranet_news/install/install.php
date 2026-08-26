@@ -1,4 +1,5 @@
 <?php
+
 /*
 This file is part of VCMS.
 
@@ -16,8 +17,9 @@ You should have received a copy of the GNU General Public License
 along with VCMS. If not, see <http://www.gnu.org/licenses/>.
 */
 
-if(!is_object($libGlobal))
-	exit();
+if (!is_object($libGlobal)) {
+    exit();
+}
 
 
 echo 'Erstelle Tabelle mod_news_kategorie<br />';
@@ -33,7 +35,7 @@ echo 'Erstelle Tabelle mod_news_news<br />';
 $sql = "CREATE TABLE mod_news_news (
 	id int(11) NOT NULL auto_increment,
 	kategorieid int(11),
-	eingabedatum datetime NOT NULL default '0000-00-00 00:00:00',
+	eingabedatum datetime,
 	text text NOT NULL,
 	betroffenesmitglied int(11),
 	autor int(11),

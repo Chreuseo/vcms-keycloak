@@ -1,4 +1,5 @@
 <?php
+
 /*
 This file is part of VCMS.
 
@@ -16,87 +17,89 @@ You should have received a copy of the GNU General Public License
 along with VCMS. If not, see <http://www.gnu.org/licenses/>.
 */
 
-if(!is_object($libGlobal))
-	exit();
+if (!is_object($libGlobal)) {
+    exit();
+}
 
 
 /*
 * action
 */
-if(!$libGenericStorage->attributeExistsInCurrentModule('show_senior')){
-	$libGenericStorage->saveValueInCurrentModule('show_senior', 0);
+if (!$libGenericStorage->attributeExistsInCurrentModule('show_senior')) {
+    $libGenericStorage->saveValueInCurrentModule('show_senior', 0);
 }
 
-if(!$libGenericStorage->attributeExistsInCurrentModule('show_jubelsenior')){
-	$libGenericStorage->saveValueInCurrentModule('show_jubelsenior', 0);
+if (!$libGenericStorage->attributeExistsInCurrentModule('show_jubelsenior')) {
+    $libGenericStorage->saveValueInCurrentModule('show_jubelsenior', 0);
 }
 
-if(!$libGenericStorage->attributeExistsInCurrentModule('show_consenior')){
-	$libGenericStorage->saveValueInCurrentModule('show_consenior', 0);
+if (!$libGenericStorage->attributeExistsInCurrentModule('show_consenior')) {
+    $libGenericStorage->saveValueInCurrentModule('show_consenior', 0);
 }
 
-if(!$libGenericStorage->attributeExistsInCurrentModule('show_fuchsmajor')){
-	$libGenericStorage->saveValueInCurrentModule('show_fuchsmajor', 0);
+if (!$libGenericStorage->attributeExistsInCurrentModule('show_fuchsmajor')) {
+    $libGenericStorage->saveValueInCurrentModule('show_fuchsmajor', 0);
 }
 
-if(!$libGenericStorage->attributeExistsInCurrentModule('show_fuchsmajor2')){
-	$libGenericStorage->saveValueInCurrentModule('show_fuchsmajor2', 0);
+if (!$libGenericStorage->attributeExistsInCurrentModule('show_fuchsmajor2')) {
+    $libGenericStorage->saveValueInCurrentModule('show_fuchsmajor2', 0);
 }
 
-if(!$libGenericStorage->attributeExistsInCurrentModule('show_scriptor')){
-	$libGenericStorage->saveValueInCurrentModule('show_scriptor', 0);
+if (!$libGenericStorage->attributeExistsInCurrentModule('show_scriptor')) {
+    $libGenericStorage->saveValueInCurrentModule('show_scriptor', 0);
 }
 
-if(!$libGenericStorage->attributeExistsInCurrentModule('show_quaestor')){
-	$libGenericStorage->saveValueInCurrentModule('show_quaestor', 0);
+if (!$libGenericStorage->attributeExistsInCurrentModule('show_quaestor')) {
+    $libGenericStorage->saveValueInCurrentModule('show_quaestor', 0);
 }
 
-if(!$libGenericStorage->attributeExistsInCurrentModule('show_form')){
-	$libGenericStorage->saveValueInCurrentModule('show_form', 1);
+if (!$libGenericStorage->attributeExistsInCurrentModule('show_form')) {
+    $libGenericStorage->saveValueInCurrentModule('show_form', 1);
 }
 
-if(!$libGenericStorage->attributeExistsInCurrentModule('show_haftungshinweis')){
-	$libGenericStorage->saveValueInCurrentModule('show_haftungshinweis', 0);
+if (!$libGenericStorage->attributeExistsInCurrentModule('show_haftungshinweis')) {
+    $libGenericStorage->saveValueInCurrentModule('show_haftungshinweis', 0);
 }
 
 
 $mailsent = false;
 
-if($libGenericStorage->loadValueInCurrentModule('show_form')){
-	if(isset($_POST['name']) && isset($_POST['telefon']) && isset($_POST['emailaddress']) && isset($_POST['nachricht'])){
-		$error_emailaddress = false;
-		$error_message = false;
+if ($libGenericStorage->loadValueInCurrentModule('show_form')) {
+    if (isset($_POST['name']) && isset($_POST['phone']) && isset($_POST['emailaddress']) && isset($_POST['message'])) {
+        $error_emailaddress = false;
+        $error_message = false;
 
-		if(!$libString->isValidEmail($_POST['emailaddress'])){
-			$error_emailaddress = true;
-			$libGlobal->errorTexts[] = 'Die angegebene E-Mail-Adresse ist nicht korrekt.';
-		}
+        if (!$libString->isValidEmail($_POST['emailaddress'])) {
+            $error_emailaddress = true;
+            $libGlobal->errorTexts[] = 'Die angegebene E-Mail-Adresse ist nicht korrekt.';
+        }
 
-		if(trim($_POST['nachricht']) == ''){
-			$error_message = true;
-			$libGlobal->errorTexts[] = 'Es wurde keine Nachricht eingegeben.';
-		}
+        if (trim($_POST['message']) == '') {
+            $error_message = true;
+            $libGlobal->errorTexts[] = 'Es wurde keine Nachricht eingegeben.';
+        }
 
-		if(!$error_emailaddress && !$error_message) {
-			$nachricht = $_POST['name']. ' mit der Telefonnummer ' .$_POST['telefon']. ' und der E-Mail-Adresse ' .$_POST['emailaddress']. ' hat über das Kontaktformular folgende Nachricht geschrieben:' . PHP_EOL;
-			$nachricht .= PHP_EOL;
-			$nachricht .= $_POST['nachricht'];
+        if (!$error_emailaddress && !$error_message) {
+            $message = $_POST['name']. ' mit der Telefonnummer ' .$_POST['phone']. ' und der E-Mail-Adresse ' .$_POST['emailaddress']. ' hat über das Kontaktformular folgende Nachricht geschrieben:' . PHP_EOL;
+            $message .= PHP_EOL;
+            $message .= $_POST['message'];
 
-			$mail = $libMail->createPHPMailer();
+            $mail = $libMail->createPHPMailer();
 
-			$mail->addAddress($libConfig->emailInfo);
-			$mail->Subject = 'E-Mail von ' .$libString->protectXSS($_POST['name']). ' über ' . $libGlobal->getSiteUrl();
-			$mail->Body = $libString->protectXSS($nachricht);
-			$mail->addReplyTo($_POST['emailaddress']);
+            $mail->addAddress($libConfig->emailInfo);
+            // The mail is plain text, therefore no HTML escaping
+            $mail->Subject = 'E-Mail von ' .$_POST['name']. ' über ' . $libGlobal->getSiteUrl();
+            $mail->Body = $message;
+            $mail->addReplyTo($_POST['emailaddress']);
 
-			if($mail->send()){
-				$mailsent = true;
-				$libGlobal->notificationTexts[] = 'Vielen Dank, Ihre Nachricht wurde weitergeleitet.';
-			} else {
-				$libGlobal->errorTexts[] = $mail->ErrorInfo;
-			}
-		}
-	}
+            if ($mail->send()) {
+                $mailsent = true;
+                $libGlobal->notificationTexts[] = 'Vielen Dank, Ihre Nachricht wurde weitergeleitet.';
+            } else {
+                $libGlobal->errorTexts[] = $mail->ErrorInfo;
+            }
+        }
+    }
 }
 
 /*
@@ -105,7 +108,7 @@ if($libGenericStorage->loadValueInCurrentModule('show_form')){
 $associationSchema = $libAssociation->getAssociationSchema();
 
 echo '<script type="application/ld+json">';
-echo json_encode($associationSchema);
+echo str_replace(['<', '>', '&'], ['\u003c', '\u003e', '\u0026'], json_encode($associationSchema));
 echo '</script>';
 
 
@@ -121,8 +124,8 @@ echo '<section class="address-box mb-5">';
 echo '<p class="mb-4">' .$libConfig->verbindungName. '</p>';
 echo '<address class="contact-address mb-4">';
 
-if($libConfig->verbindungZusatz != ''){
-	echo '<span>' .$libConfig->verbindungZusatz. '</span><br />';
+if ($libConfig->verbindungZusatz != '') {
+    echo '<span>' .$libConfig->verbindungZusatz. '</span><br />';
 }
 
 echo '<span>' .$libConfig->verbindungStrasse. '</span><br />';
@@ -134,34 +137,34 @@ echo '</address>';
 
 echo '<p class="contact-vorstand mb-4">';
 
-$vorstand = $libAssociation->getAnsprechbarerAktivenVorstandIds();
+$board = $libAssociation->getContactableActiveBoardIds();
 
-if($libGenericStorage->loadValueInCurrentModule('show_senior') && $vorstand['senior']){
-	echo 'Senior: ' .$libPerson->getNameString($vorstand['senior'], 0). '<br />';
+if ($libGenericStorage->loadValueInCurrentModule('show_senior') && $board['senior']) {
+    echo 'Senior: ' .$libString->protectXSS($libPerson->getNameString($board['senior'], 0)). '<br />';
 }
 
-if($libGenericStorage->loadValueInCurrentModule('show_jubelsenior') && $vorstand['jubelsenior']){
-	echo 'Jubelsenior: ' .$libPerson->getNameString($vorstand['jubelsenior'], 0). '<br />';
+if ($libGenericStorage->loadValueInCurrentModule('show_jubelsenior') && $board['jubelsenior']) {
+    echo 'Jubelsenior: ' .$libString->protectXSS($libPerson->getNameString($board['jubelsenior'], 0)). '<br />';
 }
 
-if($libGenericStorage->loadValueInCurrentModule('show_consenior') && $vorstand['consenior']){
-	echo 'Consenior: ' .$libPerson->getNameString($vorstand['consenior'], 0). '<br />';
+if ($libGenericStorage->loadValueInCurrentModule('show_consenior') && $board['consenior']) {
+    echo 'Consenior: ' .$libString->protectXSS($libPerson->getNameString($board['consenior'], 0)). '<br />';
 }
 
-if($libGenericStorage->loadValueInCurrentModule('show_fuchsmajor') && $vorstand['fuchsmajor']){
-	echo 'Fuchsmajor: ' .$libPerson->getNameString($vorstand['fuchsmajor'], 0). '<br />';
+if ($libGenericStorage->loadValueInCurrentModule('show_fuchsmajor') && $board['fuchsmajor']) {
+    echo 'Fuchsmajor: ' .$libString->protectXSS($libPerson->getNameString($board['fuchsmajor'], 0)). '<br />';
 }
 
-if($libGenericStorage->loadValueInCurrentModule('show_fuchsmajor2') && $vorstand['fuchsmajor2']){
-	echo 'Fuchsmajor 2: ' .$libPerson->getNameString($vorstand['fuchsmajor2'], 0). '<br />';
+if ($libGenericStorage->loadValueInCurrentModule('show_fuchsmajor2') && $board['fuchsmajor2']) {
+    echo 'Fuchsmajor 2: ' .$libString->protectXSS($libPerson->getNameString($board['fuchsmajor2'], 0)). '<br />';
 }
 
-if($libGenericStorage->loadValueInCurrentModule('show_scriptor') && $vorstand['scriptor']){
-	echo 'Scriptor: ' .$libPerson->getNameString($vorstand['scriptor'], 0). '<br />';
+if ($libGenericStorage->loadValueInCurrentModule('show_scriptor') && $board['scriptor']) {
+    echo 'Scriptor: ' .$libString->protectXSS($libPerson->getNameString($board['scriptor'], 0)). '<br />';
 }
 
-if($libGenericStorage->loadValueInCurrentModule('show_quaestor') && $vorstand['quaestor']){
-	echo 'Quaestor: ' .$libPerson->getNameString($vorstand['quaestor'], 0). '<br />';
+if ($libGenericStorage->loadValueInCurrentModule('show_quaestor') && $board['quaestor']) {
+    echo 'Quaestor: ' .$libString->protectXSS($libPerson->getNameString($board['quaestor'], 0)). '<br />';
 }
 
 echo '</p>';
@@ -169,81 +172,81 @@ echo '</section>';
 echo '</div>';
 
 echo '<aside class="col-sm-6">';
-echo '<div class="panel panel-default reveal mb-5">';
-echo '<div class="thumbnail">';
-echo '<img src="' .$libModuleHandler->getModuleDirectory(). '/custom/img/haus.jpg" alt="" class="img-responsive center-block reveal" />';
+echo '<div class="card reveal mb-5">';
+echo '<div class="card card-img">';
+echo '<img src="' .$libModuleHandler->getModuleDirectory(). '/custom/img/haus.jpg" alt="" class="img-fluid d-block mx-auto reveal" />';
 echo '</div>';
 echo '</div>';
 echo '</aside>';
 
 echo '</div>';
 
-if($libGenericStorage->loadValueInCurrentModule('show_form')){
-	echo '<h2>Kontakt aufnehmen</h2>';
+if ($libGenericStorage->loadValueInCurrentModule('show_form')) {
+    echo '<h2>Kontakt aufnehmen</h2>';
 
-	echo '<div class="row">';
-	echo '<div class="col-sm-12">';
-	echo '<section class="contact-form-box mb-5">';
+    echo '<div class="row">';
+    echo '<div class="col-sm-12">';
+    echo '<section class="contact-form-box mb-5">';
 
-	if($mailsent){
-		echo '<p class="mb-4">Vielen Dank, Ihre Nachricht wurde weitergeleitet.</p>';
-	} else {
-		$name = '';
+    if ($mailsent) {
+        echo '<p class="mb-4">Vielen Dank, Ihre Nachricht wurde weitergeleitet.</p>';
+    } else {
+        $name = '';
 
-		if(isset($_POST['name']) && $_POST['name'] != ''){
-			$name = $_POST['name'];
-		}
+        if (isset($_POST['name']) && $_POST['name'] != '') {
+            $name = $_POST['name'];
+        }
 
-		$email = '';
+        $email = '';
 
-		if(isset($_POST['emailaddress']) && $_POST['emailaddress'] != ''){
-			$email = $_POST['emailaddress'];
-		}
+        if (isset($_POST['emailaddress']) && $_POST['emailaddress'] != '') {
+            $email = $_POST['emailaddress'];
+        }
 
-		$telefon = '';
+        $phone = '';
 
-		if(isset($_POST['telefon']) && $_POST['telefon'] != ''){
-			$telefon = $_POST['telefon'];
-		}
+        if (isset($_POST['phone']) && $_POST['phone'] != '') {
+            $phone = $_POST['phone'];
+        }
 
-		$nachricht = '';
+        $message = '';
 
-		if(isset($_POST['nachricht']) && $_POST['nachricht'] != ''){
-			$nachricht = $_POST['nachricht'];
-		}
+        if (isset($_POST['message']) && $_POST['message'] != '') {
+            $message = $_POST['message'];
+        }
 
-		echo '<div class="panel panel-default">';
-		echo '<div class="panel-body">';
-		echo '<form action="index.php?pid=kontakt" method="post" class="form-horizontal">';
-		echo '<fieldset>';
+        echo '<div class="card">';
+        echo '<div class="card-body">';
+        echo '<form action="index.php?pid=kontakt" method="post">';
+        echo '<fieldset>';
 
-		$libForm->printTextInput('name', 'Name', $libString->protectXSS($name), 'text', false, true);
-		$libForm->printTextInput('emailaddress', 'E-Mail-Adresse', $libString->protectXSS($email), 'email', false, true);
-		$libForm->printTextInput('telefon', 'Telefonnummer', $libString->protectXSS($telefon), 'tel', false, true);
-		$libForm->printTextarea('nachricht', 'Nachricht', $libString->protectXSS($nachricht), false, true);
-		$libForm->printSubmitButton('<i class="fa fa-envelope-o" aria-hidden="true"></i> Abschicken');
+        $libForm->printTextInput('name', 'Name', $name, 'text', false, true);
+        $libForm->printTextInput('emailaddress', 'E-Mail-Adresse', $email, 'email', false, true);
+        $libForm->printTextInput('phone', 'Telefonnummer', $phone, 'tel', false, true);
+        $libForm->printTextarea('message', 'Nachricht', $message, false, true);
+        $libForm->printSubmitButton('<i class="fa fa-envelope-o" aria-hidden="true"></i> Abschicken');
 
-		echo '</fieldset>';
-		echo '</form>';
-		echo '</div>';
-		echo '</div>';
-	}
+        echo '</fieldset>';
+        echo '</form>';
+        echo '</div>';
+        echo '</div>';
+    }
 
-	echo '</section>';
-	echo '</div>';
-	echo '</div>';
+    echo '</section>';
+    echo '</div>';
+    echo '</div>';
 }
 
-if($libGenericStorage->loadValueInCurrentModule('show_haftungshinweis')){
-	echo '<h2>Haftungshinweis</h2>';
+if ($libGenericStorage->loadValueInCurrentModule('show_haftungshinweis')) {
+    echo '<h2>Haftungshinweis</h2>';
 
-	echo '<div class="row">';
-	echo '<div class="col-md-12">';
-	echo '<section class="disclaimer-box">';
-	echo '<p class="mb-4">Haftungshinweis: Trotz sorgfältiger inhaltlicher Kontrolle übernehmen wir keine Haftung für die Inhalte externer Links. Für den Inhalt der verlinkten Seiten sind ausschließlich deren Betreiber verantwortlich.</p>';
-	echo '</section>';
-	echo '</div>';
-	echo '</div>';
+    echo '<div class="row">';
+    echo '<div class="col-md-12">';
+    echo '<section class="disclaimer-box">';
+    echo '<p class="mb-4">Haftungshinweis: Trotz sorgfältiger inhaltlicher Kontrolle übernehmen wir keine Haftung für die Inhalte externer Links. Für den Inhalt der verlinkten Seiten sind ausschließlich deren Betreiber verantwortlich.</p>';
+    echo '</section>';
+    echo '</div>';
+    echo '</div>';
 }
 
 echo '<h2>VCMS</h2>';

@@ -1,4 +1,5 @@
 <?php
+
 /*
 This file is part of VCMS.
 
@@ -16,8 +17,9 @@ You should have received a copy of the GNU General Public License
 along with VCMS. If not, see <http://www.gnu.org/licenses/>.
 */
 
-if(!is_object($libGlobal))
-	exit();
+if (!is_object($libGlobal)) {
+    exit();
+}
 
 
 echo '<h1>Semesterprogramm ' .$libTime->getSemesterString($libGlobal->semester). '</h1>';
@@ -27,26 +29,26 @@ echo $libString->getNotificationBoxText();
 
 
 echo '<div class="row">';
-echo '<div class="col-xs-12 col-sm-6">';
+echo '<div class="col-12 col-sm-6">';
 
-$stmt = $libDb->prepare("SELECT DATE_FORMAT(datum,'%Y-%m-01') AS datum FROM base_veranstaltung GROUP BY datum ORDER BY datum DESC");
+$stmt = $libDb->prepare("SELECT DATE_FORMAT(datum,'%Y-%m-01') AS datum FROM base_veranstaltung WHERE datum IS NOT NULL GROUP BY datum ORDER BY datum DESC");
 $stmt->execute();
 
-$daten = array();
+$data = [];
 
-while($row = $stmt->fetch(PDO::FETCH_ASSOC)){
-	$daten[] = $row['datum'];
+while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+    $data[] = $row['datum'];
 }
 
-echo $libTime->getSemesterMenu($libTime->getSemestersFromDates($daten), $libGlobal->semester);
+echo $libTime->getSemesterMenu($libTime->getSemestersFromDates($data), $libGlobal->semester);
 
 echo '</div>';
 
-echo '<div class="col-xs-12 col-sm-6">';
-echo '<div class="panel panel-default">';
-echo '<div class="panel-body">';
+echo '<div class="col-12 col-sm-6">';
+echo '<div class="card">';
+echo '<div class="card-body">';
 echo '<div class="btn-toolbar">';
-echo '<a href="webcal://' .$libGlobal->getSiteUrlAuthority(). '/api.php?iid=semesterprogramm_icalendar" class="btn btn-default"><i class="fa fa-calendar" aria-hidden="true"></i> Semesterprogramm abonnieren</a>';
+echo '<a href="webcal://' .$libString->protectXSS($libGlobal->getSiteUrlAuthority()). '/api.php?iid=semesterprogramm_icalendar" class="btn btn-outline-secondary"><i class="fa fa-calendar" aria-hidden="true"></i> Semesterprogramm abonnieren</a>';
 echo '</div>';
 echo '</div>';
 echo '</div>';
@@ -57,59 +59,59 @@ echo '</div>';
 
 echo '<div>';
 
-$zeitraum = $libTime->getZeitraum($libGlobal->semester);
-$calendar = new \vcms\calendar\LibCalendar($zeitraum[0], $zeitraum[1]);
+$period = $libTime->getPeriod($libGlobal->semester);
+$calendar = new \vcms\calendar\LibCalendar($period[0], $period[1]);
 $intern = $libAuth->isLoggedin() ? 1 : 0;
 
 $stmt = $libDb->prepare("SELECT * FROM base_veranstaltung WHERE intern <= :intern AND ((DATEDIFF(datum, :startdatum1) >= 0 AND DATEDIFF(datum, :startdatum2) <= 0) OR (DATEDIFF(datum_ende, :enddatum1) >= 0 AND DATEDIFF(datum_ende, :enddatum2) <= 0)) ORDER BY datum");
-$stmt->bindValue(':startdatum1', $zeitraum[0]);
-$stmt->bindValue(':startdatum2', $zeitraum[1]);
-$stmt->bindValue(':enddatum1', $zeitraum[0]);
-$stmt->bindValue(':enddatum2', $zeitraum[1]);
+$stmt->bindValue(':startdatum1', $period[0]);
+$stmt->bindValue(':startdatum2', $period[1]);
+$stmt->bindValue(':enddatum1', $period[0]);
+$stmt->bindValue(':enddatum2', $period[1]);
 $stmt->bindValue(':intern', $intern);
 $stmt->execute();
 
-while($row = $stmt->fetch(PDO::FETCH_ASSOC)){
-	$level = $libAuth->isLoggedin() ? 1 : 0;
+while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+    $level = $libAuth->isLoggedin() ? 1 : 0;
 
-	//build event
-	$event = new \vcms\calendar\LibCalendarEvent($row['datum']);
-	$event->setId($row['id']);
-	$event->setLocation($row['ort']);
-	$event->setSummary($row['titel']);
-	$event->setLinkUrl('index.php?pid=event&amp;id=' .$row['id']);
-	$event->setStatus($row['status']);
+    //build event
+    $event = new \vcms\calendar\LibCalendarEvent($row['datum']);
+    $event->setId($row['id']);
+    $event->setLocation($row['ort']);
+    $event->setSummary($row['titel']);
+    $event->setLinkUrl('index.php?pid=event&amp;id=' .$row['id']);
+    $event->setStatus($row['status']);
 
-	if(substr($row['datum'], 11, 8) == "00:00:00"){
-		$event->isAllDay(true);
-	}
+    if (substr((string) $row['datum'], 11, 8) == "00:00:00") {
+        $event->isAllDay(true);
+    }
 
-	if($row['datum_ende'] != '' && $row['datum_ende'] != '0000-00-00 00:00:00'){
-		$event->setEndDateTime($row['datum_ende']);
-	}
+    if ($row['datum_ende'] != '' && $row['datum_ende'] != '0000-00-00 00:00:00') {
+        $event->setEndDateTime($row['datum_ende']);
+    }
 
-	$description = "";
-	$pictureId = $libGallery->getMainPictureId($row['id']);
+    $description = "";
+    $pictureId = $libGallery->getMainPictureId($row['id']);
 
-	if($pictureId > -1){
-		$event->setImageUrl('api.php?iid=event_picture&amp;eventid=' .$row['id']. '&amp;id=' .$pictureId);
-	}
+    if ($pictureId > -1) {
+        $event->setImageUrl('api.php?iid=event_picture&amp;eventid=' .$row['id']. '&amp;id=' .$pictureId);
+    }
 
-	$stmt2 = $libDb->prepare("SELECT COUNT(*) AS number FROM base_veranstaltung_teilnahme WHERE person=:person AND veranstaltung=:veranstaltung");
-	$stmt2->bindValue(':person', $libAuth->getId(), PDO::PARAM_INT);
-	$stmt2->bindValue(':veranstaltung', $row['id'], PDO::PARAM_INT);
-	$stmt2->execute();
-	$stmt2->bindColumn('number', $anzahl);
-	$stmt2->fetch();
+    $stmt2 = $libDb->prepare("SELECT COUNT(*) AS number FROM base_veranstaltung_teilnahme WHERE person=:person AND veranstaltung=:veranstaltung");
+    $stmt2->bindValue(':person', $libAuth->getId(), PDO::PARAM_INT);
+    $stmt2->bindValue(':veranstaltung', $row['id'], PDO::PARAM_INT);
+    $stmt2->execute();
+    $stmt2->bindColumn('number', $count);
+    $stmt2->fetch();
 
-	if($libAuth->isloggedin() == true && $anzahl > 0){
-		$event->isAttended(true);
-		$event->setAttendedIcon('<i class="fa fa-check-square-o" aria-hidden="true"></i>');
-	}
+    if ($libAuth->isloggedin() == true && $count > 0) {
+        $event->isAttended(true);
+        $event->setAttendedIcon('<i class="fa fa-check-square-o" aria-hidden="true"></i>');
+    }
 
-	$event->setDescription($description);
+    $event->setDescription($description);
 
-	$calendar->addEvent($event);
+    $calendar->addEvent($event);
 }
 
 echo $calendar->toString();

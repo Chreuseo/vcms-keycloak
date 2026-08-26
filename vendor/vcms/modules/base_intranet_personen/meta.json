@@ -63,15 +63,6 @@
 			"accessRestriction": {
 				"gruppen": ["F", "B", "P", "C", "G", "W", "Y"]
 			}
-		},
-		{
-			"pid": "intranet_mitglied_karte",
-			"file": "member_card.php",
-			"directory": "scripts",
-			"title": "Mitgliederkarte",
-			"accessRestriction": {
-				"gruppen": ["F", "B", "P", "C", "G", "W", "Y"]
-			}
 		}
 	],
 	"includes": [
@@ -122,12 +113,6 @@
 					"name": "Statistik",
 					"type": "menu_entry",
 					"position": 3006
-				},
-				{
-					"pid": "intranet_mitglied_karte",
-					"name": "Mitgliederkarte",
-					"type": "menu_entry",
-					"position": 3007
 				}
 			]
 		}

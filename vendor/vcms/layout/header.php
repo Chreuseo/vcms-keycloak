@@ -60,6 +60,10 @@ if(is_array($libGlobal->module->getHeaderStrings())){
 	foreach($libGlobal->module->getHeaderStrings() as $headerString){
 		echo '    ' .$headerString. PHP_EOL;
 	}
+if (is_array($libGlobal->module->getHeaderStrings())) {
+    foreach ($libGlobal->module->getHeaderStrings() as $headerString) {
+        echo '    ' .$headerString. PHP_EOL;
+    }
 }
 
 /*

@@ -1,4 +1,5 @@
 <?php
+
 /*
 This file is part of VCMS.
 
@@ -16,57 +17,64 @@ You should have received a copy of the GNU General Public License
 along with VCMS. If not, see <http://www.gnu.org/licenses/>.
 */
 
-if(!is_object($libGlobal) || !$libAuth->isLoggedin())
-	exit();
+if (!is_object($libGlobal) || !$libAuth->isLoggedin()) {
+    exit();
+}
 
 
 /*
 * actions
 */
 
-$array = array();
+$array = [];
 //table fields
-$felder = array("datum", "beschreibung", "verein");
+$fields = ["datum", "beschreibung", "verein"];
 
 $id = '';
 
-if(isset($_REQUEST['id'])){
-	$id = $_REQUEST['id'];
+if (isset($_REQUEST['id'])) {
+    $id = $_REQUEST['id'];
 }
 
 //new event, empty row
-if(isset($_REQUEST['aktion']) && $_REQUEST['aktion'] == "blank"){
-	foreach($felder as $feld){
-		$array[$feld] = '';
-	}
+if (isset($_REQUEST['action']) && $_REQUEST['action'] == "blank") {
+    foreach ($fields as $field) {
+        $array[$field] = '';
+    }
 
-	$array['id'] = '';
-	$array['datum'] = @date("Y-m-d H:i:s");
+    $array['id'] = '';
+    $array['datum'] = @date("Y-m-d H:i:s");
 }
 //blank data to save
-elseif(isset($_REQUEST['aktion']) && $_REQUEST['aktion'] == "insert"){
-	if(!isset($_POST['form_complete']) || !$_POST['form_complete']){
-		die("Die Eingabemaske war noch nicht komplett dargestellt. Bitte Seite neu laden.");
-	}
+elseif (isset($_REQUEST['action']) && $_REQUEST['action'] == "insert") {
+    if (!isset($_POST['form_complete']) || !$_POST['form_complete']) {
+        die("Die Eingabemaske war noch nicht komplett dargestellt. Bitte Seite neu laden.");
+    }
 
-	$array = $libDb->insertRow($felder,$_REQUEST, "mod_chargierkalender_veranstaltung", array("id"=>''));
-	$libGlobal->notificationTexts[] = 'Die Chargierveranstaltung wurde gespeichert.';
+    $valueArray = $_REQUEST;
+    $valueArray['datum'] = $libTime->assureMysqlDateTime($valueArray['datum']);
+
+    $array = $libDb->insertRow($fields, $valueArray, "mod_chargierkalender_veranstaltung", ["id" => '']);
+    $libGlobal->notificationTexts[] = 'Die Chargierveranstaltung wurde gespeichert.';
 }
 //data modification
-elseif(isset($_REQUEST['aktion']) && $_REQUEST['aktion'] == "update"){
-	if(!isset($_POST['form_complete']) || !$_POST['form_complete']){
-		die("Die Eingabemaske war noch nicht komplett dargestellt. Bitte Seite neu laden.");
-	}
+elseif (isset($_REQUEST['action']) && $_REQUEST['action'] == "update") {
+    if (!isset($_POST['form_complete']) || !$_POST['form_complete']) {
+        die("Die Eingabemaske war noch nicht komplett dargestellt. Bitte Seite neu laden.");
+    }
 
-	$array = $libDb->updateRow($felder,$_REQUEST, "mod_chargierkalender_veranstaltung", array("id" => $id));
-	$libGlobal->notificationTexts[] = 'Die Chargierveranstaltung wurde gespeichert.';
+    $valueArray = $_REQUEST;
+    $valueArray['datum'] = $libTime->assureMysqlDateTime($valueArray['datum']);
+
+    $array = $libDb->updateRow($fields, $valueArray, "mod_chargierkalender_veranstaltung", ["id" => $id]);
+    $libGlobal->notificationTexts[] = 'Die Chargierveranstaltung wurde gespeichert.';
 }
 // select
 else {
-	$stmt = $libDb->prepare("SELECT * FROM mod_chargierkalender_veranstaltung WHERE id=:id");
-	$stmt->bindValue(':id', $id, PDO::PARAM_INT);
-	$stmt->execute();
-	$array = $stmt->fetch(PDO::FETCH_ASSOC);
+    $stmt = $libDb->prepare("SELECT * FROM mod_chargierkalender_veranstaltung WHERE id=:id");
+    $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+    $stmt->execute();
+    $array = $stmt->fetch(PDO::FETCH_ASSOC);
 }
 
 
@@ -84,30 +92,34 @@ echo $libString->getNotificationBoxText();
 /*
 * delete option
 */
-if($array['id'] != ''){
-	echo '<p class="mb-4"><a href="index.php?pid=intranet_chargierkalender_adminliste&amp;aktion=delete&amp;id='.$array['id'].'" onclick="return confirm(\'Willst Du den Datensatz wirklich löschen?\')"><i class="fa fa-trash" aria-hidden="true"></i> Datensatz löschen</a></p>';
+if ($array['id'] != '') {
+    echo '<form class="mb-4" method="post" action="index.php?pid=intranet_chargierkalender_adminliste" onsubmit="return confirm(\'Willst Du den Datensatz wirklich löschen?\')">';
+    echo '<input type="hidden" name="action" value="delete" />';
+    echo '<input type="hidden" name="id" value="' .$array['id']. '" />';
+    echo '<button type="submit" class="p-0 border-0 bg-transparent align-baseline text-dark cursor-pointer"><i class="fa fa-trash" aria-hidden="true"></i> Datensatz löschen</button>';
+    echo '</form>';
 }
 
 /*
 * form
 */
-if(isset($_REQUEST['aktion']) && $_REQUEST['aktion'] == "blank"){
-	$extraActionParam = "&amp;aktion=insert";
+if (isset($_REQUEST['action']) && $_REQUEST['action'] == "blank") {
+    $extraActionParam = "&amp;action=insert";
 } else {
-	$extraActionParam = "&amp;aktion=update";
+    $extraActionParam = "&amp;action=update";
 }
 
-echo '<div class="panel panel-default">';
-echo '<div class="panel-body">';
-echo '<form action="index.php?pid=intranet_chargierkalender_adminveranstaltung' .$extraActionParam. '" method="post" class="form-horizontal">';
+echo '<div class="card">';
+echo '<div class="card-body">';
+echo '<form action="index.php?pid=intranet_chargierkalender_adminveranstaltung' .$extraActionParam. '" method="post">';
 echo '<fieldset>';
 
-echo '<input type="hidden" name="formtyp" value="veranstaltungsdaten" />';
+echo '<input type="hidden" name="formType" value="eventData" />';
 echo '<input type="hidden" name="id" value="' .$array['id']. '" />';
 
 $libForm->printTextInput('id', 'Id', $array['id'], 'text', true);
-$libForm->printTextInput('datum', 'Datum', $array['datum'], 'date');
-$libForm->printVereineDropDownBox("verein", "Verein", $array['verein'], true, false);
+$libForm->printDateTimeInput('datum', 'Datum und Uhrzeit (00:00 = ganztägig)', $array['datum']);
+$libForm->printAssociationsDropDownBox("verein", "Verein", $array['verein'], true, false);
 $libForm->printTextInput('beschreibung', 'Beschreibung', $array['beschreibung']);
 
 echo '<input type="hidden" name="form_complete" value="1" />';

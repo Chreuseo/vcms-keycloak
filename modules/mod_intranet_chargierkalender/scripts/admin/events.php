@@ -1,4 +1,5 @@
 <?php
+
 /*
 This file is part of VCMS.
 
@@ -16,28 +17,29 @@ You should have received a copy of the GNU General Public License
 along with VCMS. If not, see <http://www.gnu.org/licenses/>.
 */
 
-if(!is_object($libGlobal) || !$libAuth->isLoggedin())
-	exit();
+if (!is_object($libGlobal) || !$libAuth->isLoggedin()) {
+    exit();
+}
 
 /*
 * actions
 */
-if(isset($_GET['aktion']) && $_GET['aktion'] == "delete"){
-	if(isset($_GET['id']) && $_GET['id'] != ""){
-		//CASCADE deletion
+if (isset($_POST['action']) && $_POST['action'] == "delete") {
+    if (isset($_POST['id']) && $_POST['id'] != "") {
+        //CASCADE deletion
 
-		//delete event registrations
-		$stmt = $libDb->prepare("DELETE FROM mod_chargierkalender_teilnahme WHERE chargierveranstaltung=:chargierveranstaltung");
-		$stmt->bindValue(':chargierveranstaltung', $_REQUEST['id'], PDO::PARAM_INT);
-		$stmt->execute();
+        //delete event registrations
+        $stmt = $libDb->prepare("DELETE FROM mod_chargierkalender_teilnahme WHERE chargierveranstaltung=:chargierveranstaltung");
+        $stmt->bindValue(':chargierveranstaltung', $_POST['id'], PDO::PARAM_INT);
+        $stmt->execute();
 
-		//delete event
-		$stmt = $libDb->prepare("DELETE FROM mod_chargierkalender_veranstaltung WHERE id=:id");
-		$stmt->bindValue(':id', $_REQUEST['id'], PDO::PARAM_INT);
-		$stmt->execute();
+        //delete event
+        $stmt = $libDb->prepare("DELETE FROM mod_chargierkalender_veranstaltung WHERE id=:id");
+        $stmt->bindValue(':id', $_POST['id'], PDO::PARAM_INT);
+        $stmt->execute();
 
-		$libGlobal->notificationTexts[] = "Die Chargierveranstaltung wurde gelöscht.";
-	}
+        $libGlobal->notificationTexts[] = "Die Chargierveranstaltung wurde gelöscht.";
+    }
 }
 
 /*
@@ -50,54 +52,54 @@ echo $libString->getErrorBoxText();
 echo $libString->getNotificationBoxText();
 
 
-echo '<div class="panel panel-default">';
-echo '<div class="panel-body">';
+echo '<div class="card">';
+echo '<div class="card-body">';
 echo '<div class="btn-toolbar">';
-echo '<a href="index.php?pid=intranet_chargierkalender_adminveranstaltung&amp;aktion=blank" class="btn btn-default">Eine neue Chargierveranstaltung anlegen</a>';
+echo '<a href="index.php?pid=intranet_chargierkalender_adminveranstaltung&amp;action=blank" class="btn btn-outline-secondary">Eine neue Chargierveranstaltung anlegen</a>';
 echo '</div>';
 echo '</div>';
 echo '</div>';
 
 
-$stmt = $libDb->prepare("SELECT DATE_FORMAT(datum,'%Y-%m-01') AS datum FROM mod_chargierkalender_veranstaltung GROUP BY datum ORDER BY datum DESC");
+$stmt = $libDb->prepare("SELECT DATE_FORMAT(datum,'%Y-%m-01') AS datum FROM mod_chargierkalender_veranstaltung WHERE datum IS NOT NULL GROUP BY datum ORDER BY datum DESC");
 $stmt->execute();
 
-$daten = array();
-while($row = $stmt->fetch(PDO::FETCH_ASSOC)){
-	$daten[] = $row['datum'];
+$data = [];
+while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+    $data[] = $row['datum'];
 }
 
-echo $libTime->getSemesterMenu($libTime->getSemestersFromDates($daten), $libGlobal->semester);
+echo $libTime->getSemesterMenu($libTime->getSemestersFromDates($data), $libGlobal->semester);
 
 
-echo '<div class="panel panel-default">';
-echo '<div class="panel-body">';
+echo '<div class="card">';
+echo '<div class="card-body">';
 
-echo '<table class="table table-condensed table-striped table-hover">';
+echo '<table class="table table-sm table-striped table-hover">';
 echo '<thead>';
 echo '<tr><th>Id</th><th>Verein</th><th>Beschreibung</th><th>Datum</th><th></th></tr>';
 echo '</thead>';
 
-$zeitraum = $libTime->getZeitraum($libGlobal->semester);
+$period = $libTime->getPeriod($libGlobal->semester);
 
-$stmt = $libDb->prepare("SELECT * FROM mod_chargierkalender_veranstaltung WHERE datum = :datum_equal OR (DATEDIFF(datum, :semester_start) > 0 AND DATEDIFF(datum, :semester_ende) < 0) ORDER BY datum DESC");
-$stmt->bindValue(':datum_equal', $zeitraum[0]);
-$stmt->bindValue(':semester_start', $zeitraum[0]);
-$stmt->bindValue(':semester_ende', $zeitraum[1]);
+$stmt = $libDb->prepare("SELECT * FROM mod_chargierkalender_veranstaltung WHERE datum IS NULL OR datum = :datum_equal OR (DATEDIFF(datum, :semester_start) > 0 AND DATEDIFF(datum, :semester_ende) < 0) ORDER BY datum DESC");
+$stmt->bindValue(':datum_equal', $period[0]);
+$stmt->bindValue(':semester_start', $period[0]);
+$stmt->bindValue(':semester_ende', $period[1]);
 $stmt->execute();
 
-while($row = $stmt->fetch(PDO::FETCH_ASSOC)){
-	echo '<tr>';
-	echo '<td>' .$row['id']. '</td>';
-	echo '<td>' .$libAssociation->getVereinNameString($row['verein']). '</td>';
-	echo '<td>' .$row['beschreibung']. '</td>';
-	echo '<td>' .$row['datum']. '</td>';
-	echo '<td class="tool-column">';
-	echo '<a href="index.php?pid=intranet_chargierkalender_adminveranstaltung&amp;id=' .$row['id']. '">';
-	echo '<i class="fa fa-cog" aria-hidden="true"></i>';
-	echo '</a>';
-	echo '</td>';
-	echo '</tr>';
+while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+    echo '<tr>';
+    echo '<td>' .$row['id']. '</td>';
+    echo '<td>' .$libString->protectXSS($libAssociation->getAssociationNameString($row['verein'])). '</td>';
+    echo '<td>' .$libString->protectXSS((string) $row['beschreibung']). '</td>';
+    echo '<td>' .$row['datum']. '</td>';
+    echo '<td class="tool-column">';
+    echo '<a href="index.php?pid=intranet_chargierkalender_adminveranstaltung&amp;id=' .$row['id']. '">';
+    echo '<i class="fa fa-cog" aria-hidden="true"></i>';
+    echo '</a>';
+    echo '</td>';
+    echo '</tr>';
 }
 
 echo '</table>';

@@ -1,4 +1,5 @@
 <?php
+
 /*
 This file is part of VCMS.
 
@@ -16,43 +17,43 @@ You should have received a copy of the GNU General Public License
 along with VCMS. If not, see <http://www.gnu.org/licenses/>.
 */
 
-if(!is_object($libGlobal) || !$libAuth->isLoggedin())
-	exit();
+if (!is_object($libGlobal) || !$libAuth->isLoggedin()) {
+    exit();
+}
 
 
-if(isset($_POST['form_complete']) && $_POST['form_complete'] && isset($_POST['action']) && $_POST['action'] == "save"){
-	foreach($_POST as $key => $value){
-		if($key != 'form_complete'){
-			$array = explode('#', $key);
+//the delete buttons are part of the surrounding save form, so deletion has to be checked first
+if (isset($_POST['delete_target']) && $_POST['delete_target'] != '') {
+    $target = explode('#', $_POST['delete_target']);
 
-			$moduleid = $array[0];
+    if (count($target) == 3 && $target[0] != '' && $target[1] != '' && $target[2] != '') {
+        $libGenericStorage->deleteArrayValue($target[0], $target[1], $target[2]);
+        $libGlobal->notificationTexts[] = 'Der Wert wurde gelöscht.';
+    }
+} elseif (isset($_POST['form_complete']) && $_POST['form_complete'] && isset($_POST['action']) && $_POST['action'] == "save") {
+    foreach ($_POST as $key => $value) {
+        if ($key != 'form_complete') {
+            $array = explode('#', $key);
 
-			$array_name = '';
+            $moduleid = $array[0];
 
-			if(isset($array[1])){
-				$array_name = $array[1];
-			}
+            $array_name = '';
 
-			$position = '';
+            if (isset($array[1])) {
+                $array_name = $array[1];
+            }
 
-			if(isset($array[2])){
-				$position = $array[2];
-			}
+            $position = '';
 
-			if($moduleid != "" && $array_name != "" && $position != ""){
-				$libGenericStorage->saveArrayValue($moduleid, $array_name, $position, $value);
-			}
-		}
-	}
-} elseif(isset($_GET['action']) && $_GET['action'] == "delete"){
-	$moduleid = $_GET['moduleid'];
-	$array_name = $_GET['array_name'];
-	$position = $_GET['position'];
+            if (isset($array[2])) {
+                $position = $array[2];
+            }
 
-	if($moduleid != "" && $array_name != "" && $position != ""){
-		$libGenericStorage->deleteArrayValue($moduleid, $array_name, $position);
-		$libGlobal->notificationTexts[] = 'Der Wert wurde gelöscht.';
-	}
+            if ($moduleid != "" && $array_name != "" && $position != "") {
+                $libGenericStorage->saveArrayValue($moduleid, $array_name, $position, $value);
+            }
+        }
+    }
 }
 
 echo '<h1>Konfiguration</h1>';
@@ -62,39 +63,39 @@ echo $libString->getNotificationBoxText();
 
 $storage = $libGenericStorage->listAllArrayValues();
 
-echo '<div class="panel panel-default">';
-echo '<div class="panel-body">';
-echo '<form action="index.php?pid=configuration" method="post" class="form-horizontal">';
+echo '<div class="card">';
+echo '<div class="card-body">';
+echo '<form action="index.php?pid=configuration" method="post">';
 echo '<fieldset>';
 
 //modules
-foreach($storage as $moduleid => $arrays){
-	echo '<h2>' .$moduleid. '</h2>';
+foreach ($storage as $moduleid => $arrays) {
+    echo '<h2>' .$libString->protectXSS($moduleid). '</h2>';
 
-	//arrays
-	foreach($arrays as $array_name => $positionen){
-		//positions and values at that positions
-		foreach($positionen as $position => $value){
-			echo '<div class="form-group">';
-			echo '<label class="col-sm-4 control-label">' .$array_name. '</label>';
+    //arrays
+    foreach ($arrays as $array_name => $positionen) {
+        //positions and values at that positions
+        foreach ($positionen as $position => $value) {
+            echo '<div class="row mb-3">';
+            echo '<label class="col-sm-4 col-form-label">' .$libString->protectXSS($array_name). '</label>';
 
-			echo '<div class="col-sm-1">';
-			echo '<input type="text" name="' . $moduleid .'#'. $array_name .'#position' . '" value="' .$position. '" disabled="disabled" class="form-control input-sm" />';
-			echo '</div>';
+            echo '<div class="col-sm-1">';
+            echo '<input type="text" name="' .$libString->protectXSS($moduleid) .'#'. $libString->protectXSS($array_name) .'#position' . '" value="' .$libString->protectXSS((string) $position). '" disabled="disabled" class="form-control form-control-sm" />';
+            echo '</div>';
 
-			echo '<div class="col-sm-6">';
-			echo '<input type="text" name="'. $moduleid .'#'. $array_name .'#'. $position .'#value" value="' .$value. '" class="form-control input-sm" />';
-			echo '</div>';
+            echo '<div class="col-sm-6">';
+            echo '<input type="text" name="'. $libString->protectXSS($moduleid) .'#'. $libString->protectXSS($array_name) .'#'. $libString->protectXSS((string) $position) .'#value" value="' .$libString->protectXSS((string) $value). '" class="form-control form-control-sm" />';
+            echo '</div>';
 
-			echo '<div class="col-sm-1">';
-			echo '<div class="form-control-static">';
-			echo '<a href="index.php?pid=configuration&amp;action=delete&amp;moduleid=' .$moduleid. '&amp;array_name=' .$array_name. '&amp;position=' .$position. '" onclick="return confirm(\'Willst Du den Eintrag wirklich löschen?\')"><i class="fa fa-trash fa-lg" aria-hidden="true"></i></a>';
-			echo '</div>';
-			echo '</div>';
+            echo '<div class="col-sm-1">';
+            echo '<div class="form-control-plaintext p-0">';
+            echo '<button type="submit" name="delete_target" value="' .$libString->protectXSS($moduleid).'#'.$libString->protectXSS($array_name).'#'.$libString->protectXSS((string) $position). '" class="p-0 border-0 bg-transparent align-baseline text-dark cursor-pointer" onclick="return confirm(\'Willst Du den Eintrag wirklich löschen?\')"><i class="fa fa-trash fa-lg" aria-hidden="true"></i></button>';
+            echo '</div>';
+            echo '</div>';
 
-			echo '</div>';
-		}
-	}
+            echo '</div>';
+        }
+    }
 }
 
 echo '<input type="hidden" name="action" value="save" />';

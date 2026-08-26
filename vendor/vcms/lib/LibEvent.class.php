@@ -1,4 +1,5 @@
 <?php
+
 /*
 This file is part of VCMS.
 
@@ -20,147 +21,161 @@ namespace vcms;
 
 use PDO;
 
-class LibEvent{
+class LibEvent
+{
+    public function getEventUrl($id)
+    {
+        global $libGlobal;
 
-	function getEventUrl($id){
-		global $libGlobal;
+        return $libGlobal->getSiteUrl(). '/index.php?pid=event&id=' .$id;
+    }
 
-		return $libGlobal->getSiteUrl(). '/index.php?pid=event&id=' .$id;
-	}
+    public function getShareTitle($id)
+    {
+        global $libConfig, $libDb, $libTime;
 
-	function getShareTitle($id){
-		global $libConfig, $libDb, $libTime;
+        $stmt = $libDb->prepare('SELECT id, datum, titel FROM base_veranstaltung WHERE id=:id');
+        $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+        $stmt->execute();
 
-		$stmt = $libDb->prepare('SELECT id, datum, titel FROM base_veranstaltung WHERE id=:id');
-		$stmt->bindValue(':id', $id, PDO::PARAM_INT);
-		$stmt->execute();
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-		$row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!is_array($row)) {
+            return $libConfig->verbindungName;
+        }
 
-		$result = $libConfig->verbindungName. ' - ' .$row['titel']. ' am ' .$libTime->formatDateString($row['datum']);
-		return $result;
-	}
+        $result = $libConfig->verbindungName. ' - ' .$row['titel']. ' am ' .$libTime->formatDateString($row['datum']);
+        return $result;
+    }
 
-	function getStatusString($status){
-		$result = '';
+    public function getStatusString($status)
+    {
+        $result = '';
 
-		switch($status){
-			case 'o':
-				$result = 'offiziell';
-				break;
-			case 'ho':
-				$result = 'hochoffiziell';
-				break;
-			case '':
-				$result = 'inoffiziell';
-				break;
-			default:
-				$result = $status;
-		}
+        switch ($status) {
+            case 'o':
+                $result = 'offiziell';
+                break;
+            case 'ho':
+                $result = 'hochoffiziell';
+                break;
+            case '':
+                $result = 'inoffiziell';
+                break;
+            default:
+                $result = $status;
+        }
 
-		return $result;
-	}
+        return $result;
+    }
 
-	function getTitle($id){
-		global $libDb;
+    public function getTitle($id)
+    {
+        global $libDb;
 
-		$stmt = $libDb->prepare('SELECT id, datum, titel FROM base_veranstaltung WHERE id=:id');
-		$stmt->bindValue(':id', $id, PDO::PARAM_INT);
-		$stmt->execute();
-		$stmt->bindColumn('titel', $title);
-		$stmt->fetch();
+        $stmt = $libDb->prepare('SELECT id, datum, titel FROM base_veranstaltung WHERE id=:id');
+        $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+        $stmt->execute();
+        $stmt->bindColumn('titel', $title);
+        $stmt->fetch();
 
-		return $title;
-	}
+        return $title;
+    }
 
-	function hasBannedTitle($id){
-		global $libDb, $libGenericStorage;
+    public function hasBannedTitle($id)
+    {
+        global $libDb, $libGenericStorage;
 
-		$bannedTitlesString = $libGenericStorage->loadValue('base_core', 'event_banned_titles');
-		$bannedTitles = explode(',', $bannedTitlesString);
-		$bannedTitlesCleaned = array();
+        $bannedTitlesString = (string) $libGenericStorage->loadValue('base_core', 'event_banned_titles');
+        $bannedTitles = explode(',', $bannedTitlesString);
+        $bannedTitlesCleaned = [];
 
-		foreach($bannedTitles as $bannedTitle){
-			$bannedTitlesCleaned[] = strtolower(trim($bannedTitle));
-		}
+        foreach ($bannedTitles as $bannedTitle) {
+            $bannedTitlesCleaned[] = strtolower(trim($bannedTitle));
+        }
 
-		$title = $this->getTitle($id);
-		$titleCleaned = strtolower(trim($title));
-		$result = in_array($titleCleaned, $bannedTitlesCleaned);
-		return $result;
-	}
+        $title = $this->getTitle($id);
+        $titleCleaned = strtolower(trim((string) $title));
+        $result = in_array($titleCleaned, $bannedTitlesCleaned);
+        return $result;
+    }
 
-	function isFacebookEvent($row){
-		global $libGenericStorage;
+    public function isFacebookEvent($row)
+    {
+        global $libGenericStorage;
 
-		$facebookAppid = $libGenericStorage->loadValue('base_core', 'facebook_appid');
-		$facebookSecretKey = $libGenericStorage->loadValue('base_core', 'facebook_secret_key');
+        $facebookAppid = $libGenericStorage->loadValue('base_core', 'facebook_appid');
+        $facebookSecretKey = $libGenericStorage->loadValue('base_core', 'facebook_secret_key');
 
-		$result = isset($row['fb_eventid']) && is_numeric($row['fb_eventid'])
-			&& ini_get('allow_url_fopen') && $facebookAppid != '' && $facebookSecretKey != '';
-		return $result;
-	}
+        $result = isset($row['fb_eventid']) && is_numeric($row['fb_eventid'])
+            && ini_get('allow_url_fopen') && $facebookAppid != '' && $facebookSecretKey != '';
+        return $result;
+    }
 
-	function printFacebookShareButton($id){
-		$url = $this->getEventUrl($id);
-		$title = $this->getShareTitle($id);
+    public function printFacebookShareButton($id)
+    {
+        $url = $this->getEventUrl($id);
+        $title = $this->getShareTitle($id);
 
-		echo '<a href="http://www.facebook.com/share.php?u=' .rawurlencode($url). '&amp;title=' .rawurlencode($title). '" rel="nofollow">';
-		echo '<i class="fa fa-facebook-official fa-lg hvr-pop" aria-hidden="true"></i>';
-		echo '</a> ';
-	}
+        echo '<a href="http://www.facebook.com/share.php?u=' .rawurlencode($url). '&amp;title=' .rawurlencode($title). '" rel="nofollow">';
+        echo '<i class="fa fa-facebook-official fa-lg hvr-pop" aria-hidden="true"></i>';
+        echo '</a> ';
+    }
 
-	function printTwitterShareButton($id){
-		$url = $this->getEventUrl($id);
-		$title = $this->getShareTitle($id);
+    public function printTwitterShareButton($id)
+    {
+        $url = $this->getEventUrl($id);
+        $title = $this->getShareTitle($id);
 
-		echo '<a href="http://twitter.com/share?url=' .rawurlencode($url). '&amp;text=' .rawurlencode($title). '" rel="nofollow">';
-		echo '<i class="fa fa-twitter-square fa-lg hvr-pop" aria-hidden="true"></i>';
-		echo '</a> ';
-	}
+        echo '<a href="http://twitter.com/share?url=' .rawurlencode($url). '&amp;text=' .rawurlencode($title). '" rel="nofollow">';
+        echo '<i class="fa fa-twitter-square fa-lg hvr-pop" aria-hidden="true"></i>';
+        echo '</a> ';
+    }
 
-	function printWhatsAppShareButton($id){
-		$url = $this->getEventUrl($id);
-		$title = $this->getShareTitle($id);
+    public function printWhatsAppShareButton($id)
+    {
+        $url = $this->getEventUrl($id);
+        $title = $this->getShareTitle($id);
 
-		echo '<a href="whatsapp://send?text=' .rawurlencode($title. ' ' .$url). '" rel="nofollow">';
-		echo '<i class="fa fa-whatsapp fa-lg hvr-pop" aria-hidden="true"></i>';
-		echo '</a> ';
-	}
+        echo '<a href="whatsapp://send?text=' .rawurlencode($title. ' ' .$url). '" rel="nofollow">';
+        echo '<i class="fa fa-whatsapp fa-lg hvr-pop" aria-hidden="true"></i>';
+        echo '</a> ';
+    }
 
-	function getEventSchema($row){
-		global $libGlobal, $libTime;
+    public function getEventSchema($row)
+    {
+        global $libGlobal, $libTime;
 
-		$result = array();
+        $result = [];
 
-		$result['@context'] = 'http://schema.org';
-		$result['@type'] = 'SocialEvent';
-		$result['name'] = $row['titel'];
-		$result['url'] = $this->getEventUrl($row['id']);
+        $result['@context'] = 'http://schema.org';
+        $result['@type'] = 'SocialEvent';
+        $result['name'] = $row['titel'];
+        $result['url'] = $this->getEventUrl($row['id']);
 
-		if($row['beschreibung'] != ''){
-			$result['description'] = $row['beschreibung'];
-		}
+        if ($row['beschreibung'] != '') {
+            $result['description'] = $row['beschreibung'];
+        }
 
-		$result['startDate'] = $libTime->formatUtcString($row['datum']);
+        $result['startDate'] = $libTime->formatUtcString($row['datum']);
 
-		if($row['datum_ende'] != ''){
-			$result['endDate'] = $libTime->formatUtcString($row['datum_ende']);
-		}
+        if ($row['datum_ende'] != '') {
+            $result['endDate'] = $libTime->formatUtcString($row['datum_ende']);
+        }
 
-		$address = array();
-		$address['@type'] = 'Place';
+        $address = [];
+        $address['@type'] = 'Place';
 
-		if($row['ort'] != ''){
-			$address['name'] = $row['ort'];
-			$address['address'] = $row['ort'];
-		} else {
-			$address['name'] = 'a.d.H.';
-			$address['address'] = 'a.d.H.';
-		}
+        if ($row['ort'] != '') {
+            $address['name'] = $row['ort'];
+            $address['address'] = $row['ort'];
+        } else {
+            $address['name'] = 'a.d.H.';
+            $address['address'] = 'a.d.H.';
+        }
 
-		$result['location'] = $address;
+        $result['location'] = $address;
 
-		return $result;
-	}
+        return $result;
+    }
 }

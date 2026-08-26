@@ -1,4 +1,5 @@
 <?php
+
 /*
 This file is part of VCMS.
 
@@ -16,195 +17,203 @@ You should have received a copy of the GNU General Public License
 along with VCMS. If not, see <http://www.gnu.org/licenses/>.
 */
 
-if(!is_object($libGlobal) || !$libAuth->isLoggedin())
-	exit();
+if (!is_object($libGlobal) || !$libAuth->isLoggedin()) {
+    exit();
+}
 
 
 echo '<h1>Module</h1>';
 
 
-if(isset($_REQUEST['action'])){
-	if(isset($_REQUEST['action']) && $_REQUEST['action'] == 'updateEngine'){
-		$libRepositoryClient->updateEngine();
-	}
+if (isset($_POST['action'])) {
+    if ($_POST['action'] == 'updateEngine') {
+        $libRepositoryClient->updateEngine();
+    }
 
-	if(isset($_REQUEST['modul']) && $_REQUEST['modul'] != '' && $_REQUEST['modul'] != 'engine'){
-		$module = $_REQUEST['modul'];
+    if (isset($_POST['module']) && $_POST['module'] != '' && $_POST['module'] != 'engine') {
+        $module = $_POST['module'];
 
-		if($_REQUEST['action'] == 'installModule' && $module != ''){
-			$libRepositoryClient->installModule($module);
-		} elseif($_REQUEST['action'] == 'uninstallModule' && $module != ''){
-			$libRepositoryClient->uninstallModule($module);
-		}
-	}
+        if ($_POST['action'] == 'installModule' && $module != '') {
+            $libRepositoryClient->installModule($module);
+        } elseif ($_POST['action'] == 'uninstallModule' && $module != '') {
+            $libRepositoryClient->uninstallModule($module);
+        }
+    }
 
-	echo $libString->getErrorBoxText();
-	echo $libString->getNotificationBoxText();
+    echo $libString->getErrorBoxText();
+    echo $libString->getNotificationBoxText();
 
-	echo '<p class="mb-4"><a href="index.php?pid=modules" class="btn btn-default" role="button">Module zeigen</a></p>';
+    echo '<p class="mb-4"><a href="index.php?pid=modules" class="btn btn-outline-secondary" role="button">Module zeigen</a></p>';
 } else {
-	echo '<p class="mb-4">Das VCMS besteht aus einer Engine und mehreren Modulen, die auf dieser Seite aktualisiert werden können. Die folgende Liste zeigt die im System installierten sowie die im Repository verfügbaren Versionen.</p>';
-	echo '<p class="mb-4">Auto-Update: <a href="index.php?pid=configuration">';
+    echo '<p class="mb-4">Das VCMS besteht aus einer Engine und mehreren Modulen, die auf dieser Seite aktualisiert werden können. Die folgende Liste zeigt die im System installierten sowie die im Repository verfügbaren Versionen.</p>';
+    echo '<p class="mb-4">Auto-Update: <a href="index.php?pid=configuration">';
 
-	if($libGenericStorage->loadValue('base_core', 'auto_update')){
-		echo 'aktiviert';
-	} else {
-		echo 'deaktiviert';
-	}
+    if ($libGenericStorage->loadValue('base_core', 'auto_update')) {
+        echo 'aktiviert';
+    } else {
+        echo 'deaktiviert';
+    }
 
-	echo '</a></p>';
+    echo '</a></p>';
 
-	echo '<div class="panel panel-default">';
-	echo '<div class="panel-body">';
+    echo '<div class="card">';
+    echo '<div class="card-body">';
 
-	echo '<table class="table table-condensed table-striped table-hover">';
-	echo '<thead>';
-	echo '<tr>';
-	echo '<th>Modulname</th><th>Status</th>';
-	echo '<th>Version<br />(installiert)</th>';
-	echo '<th>Version<br />(Repository)</th>';
-	echo '<th class="tool-column"></th>';
-	echo '<th class="tool-column"></th>';
-	echo '<th class="tool-column"></th>';
-	echo '</tr>';
-	echo '</thead>';
+    echo '<table class="table table-sm table-striped table-hover">';
+    echo '<thead>';
+    echo '<tr>';
+    echo '<th>Modulname</th><th>Status</th>';
+    echo '<th>Version<br />(installiert)</th>';
+    echo '<th>Version<br />(Repository)</th>';
+    echo '<th class="tool-column"></th>';
+    echo '<th class="tool-column"></th>';
+    echo '<th class="tool-column"></th>';
+    echo '</tr>';
+    echo '</thead>';
 
-	$gitHubRepoUrl = 'https://github.com/Chreuseo/vcms-keycloak/tree/main';
-	$modules = $libRepositoryClient->getModuleVersions();
+    $gitHubRepoUrl = 'https://github.com/uwol/vcms/tree/master';
+    $modules = $libRepositoryClient->getModuleVersions();
 
-	$actualEngineVersion = (double) $libGlobal->version;
-	$newEngineVersion = (double) $modules['engine'];
+    $actualEngineVersion = (float) $libGlobal->version;
+    $newEngineVersion = (float) ($modules['engine'] ?? 0);
 
-	$engineIsOld = false;
+    $engineIsOld = false;
 
-	if($newEngineVersion > $actualEngineVersion){
-		$engineIsOld = true;
-	}
+    if ($newEngineVersion > $actualEngineVersion) {
+        $engineIsOld = true;
+    }
 
-	foreach($modules as $key => $value){
-		echo '<tr>';
+    foreach ($modules as $key => $value) {
+        echo '<tr>';
 
-		//module id
-		echo '<td>';
+        //module id
+        echo '<td>';
 
-		if($value){
-			if($key != 'engine'){
-				$url = $gitHubRepoUrl. '/modules/' .$key;
-			} else {
-				$url = $gitHubRepoUrl;
-			}
+        if ($value) {
+            if ($key != 'engine') {
+                $url = $gitHubRepoUrl. '/modules/' .$key;
+            } else {
+                $url = $gitHubRepoUrl;
+            }
 
-			echo '<a href="' .$url. '">';
-		}
+            echo '<a href="' .$libString->protectXSS($url). '">';
+        }
 
-		echo $key;
+        echo $libString->protectXSS((string) $key);
 
-		if($value){
-			echo '</a>';
-		}
+        if ($value) {
+            echo '</a>';
+        }
 
-		echo '</td>';
+        echo '</td>';
 
-		//status
-		echo '<td>';
+        //status
+        echo '<td>';
 
-		if($key != 'engine'){
-			if($libModuleHandler->moduleIsAvailable($key)){
-				echo 'installiert';
-			} else {
-				echo 'nicht installiert';
-			}
-		} else {
-			echo 'installiert';
-		}
+        if ($key != 'engine') {
+            if ($libModuleHandler->moduleIsAvailable($key)) {
+                echo 'installiert';
+            } else {
+                echo 'nicht installiert';
+            }
+        } else {
+            echo 'installiert';
+        }
 
-		echo '</td>';
+        echo '</td>';
 
-		//version of installed module
-		echo '<td>';
+        //version of installed module
+        echo '<td>';
 
-		if($key != 'engine'){
-			if($libModuleHandler->moduleIsAvailable($key)){
-				$module = $libModuleHandler->getModuleByModuleid($key);
-				echo $module->getVersion();
-			}
-		} else {
-			echo $libGlobal->version;
-		}
+        if ($key != 'engine') {
+            if ($libModuleHandler->moduleIsAvailable($key)) {
+                $module = $libModuleHandler->getModuleByModuleid($key);
+                echo $libString->protectXSS((string) $module->getVersion());
+            }
+        } else {
+            echo $libGlobal->version;
+        }
 
-		echo '</td>';
+        echo '</td>';
 
-		//version of module in repo
-		echo '<td>';
+        //version of module in repo
+        echo '<td>';
 
-		if($value != ''){
-			echo $value;
-		} else {
-			echo 'nicht im Repository';
-		}
+        if ($value != '') {
+            echo $libString->protectXSS((string) $value);
+        } else {
+            echo 'nicht im Repository';
+        }
 
-		echo '</td>';
+        echo '</td>';
 
-		// install action
-		echo '<td class="tool-column">';
+        // install action
+        echo '<td class="tool-column">';
 
-		if($key != 'engine'){
-			if(!$engineIsOld && !$libModuleHandler->moduleIsAvailable($key)){
-				echo '<a href="index.php?pid=modules&amp;modul=' .$key. '&amp;action=installModule" onclick="return confirm(\'Willst Du das Modul wirklich installieren?\')">';
-				echo '<i class="fa fa-plus-circle" aria-hidden="true"></i>';
-				echo '</a>';
-			}
-		}
+        if ($key != 'engine') {
+            if (!$engineIsOld && !$libModuleHandler->moduleIsAvailable($key)) {
+                echo '<form method="post" action="index.php?pid=modules" class="d-inline" onsubmit="return confirm(\'Willst Du das Modul wirklich installieren?\')">';
+                echo '<input type="hidden" name="action" value="installModule" />';
+                echo '<input type="hidden" name="module" value="' .$libString->protectXSS((string) $key). '" />';
+                echo '<button type="submit" class="p-0 border-0 bg-transparent align-baseline text-dark cursor-pointer"><i class="fa fa-plus-circle" aria-hidden="true"></i></button>';
+                echo '</form>';
+            }
+        }
 
-		echo '</td>';
+        echo '</td>';
 
-		// update action
-		echo '<td class="tool-column">';
+        // update action
+        echo '<td class="tool-column">';
 
-		if($engineIsOld && $key == 'engine'){
-			echo '<a href="index.php?pid=modules&amp;action=updateEngine" onclick="return confirm(\'Willst Du die Engine wirklich aktualisieren?\')">';
-			echo '<i class="fa fa-cloud-download" aria-hidden="true"></i>';
-			echo '</a>';
-		} else {
-			if($libModuleHandler->moduleIsAvailable($key)){
-				$module = $libModuleHandler->getModuleByModuleid($key);
-				$actualVersion = (double) $module->getVersion();
-				$newVersion = (double) $value;
+        if ($engineIsOld && $key == 'engine') {
+            echo '<form method="post" action="index.php?pid=modules" class="d-inline" onsubmit="return confirm(\'Willst Du die Engine wirklich aktualisieren?\')">';
+            echo '<input type="hidden" name="action" value="updateEngine" />';
+            echo '<button type="submit" class="p-0 border-0 bg-transparent align-baseline text-dark cursor-pointer"><i class="fa fa-cloud-download" aria-hidden="true"></i></button>';
+            echo '</form>';
+        } else {
+            if ($libModuleHandler->moduleIsAvailable($key)) {
+                $module = $libModuleHandler->getModuleByModuleid($key);
+                $actualVersion = (float) $module->getVersion();
+                $newVersion = (float) $value;
 
-				if(!$engineIsOld && $newVersion > $actualVersion){
-					echo '<a href="index.php?pid=modules&amp;modul=' .$key. '&amp;action=installModule" onclick="return confirm(\'Willst Du das Modul wirklich aktualisieren?\')">';
-					echo '<i class="fa fa-cloud-download" aria-hidden="true"></i>';
-					echo '</a>';
-				}
-			}
-		}
+                if (!$engineIsOld && $newVersion > $actualVersion) {
+                    echo '<form method="post" action="index.php?pid=modules" class="d-inline" onsubmit="return confirm(\'Willst Du das Modul wirklich aktualisieren?\')">';
+                    echo '<input type="hidden" name="action" value="installModule" />';
+                    echo '<input type="hidden" name="module" value="' .$libString->protectXSS((string) $key). '" />';
+                    echo '<button type="submit" class="p-0 border-0 bg-transparent align-baseline text-dark cursor-pointer"><i class="fa fa-cloud-download" aria-hidden="true"></i></button>';
+                    echo '</form>';
+                }
+            }
+        }
 
-		echo '</td>';
+        echo '</td>';
 
 
-		// delete action
-		echo '<td class="tool-column">';
+        // delete action
+        echo '<td class="tool-column">';
 
-		if($key != 'engine'){
-			if(!$engineIsOld && $libModuleHandler->moduleIsAvailable($key)){
-				$module = $libModuleHandler->getModuleByModuleid($key);
-				$actualVersion = (double) $module->getVersion();
-				$newVersion = (double) $value;
+        if ($key != 'engine') {
+            if (!$engineIsOld && $libModuleHandler->moduleIsAvailable($key)) {
+                $module = $libModuleHandler->getModuleByModuleid($key);
+                $actualVersion = (float) $module->getVersion();
+                $newVersion = (float) $value;
 
-				echo '<a href="index.php?pid=modules&amp;modul=' .$key. '&amp;action=uninstallModule" onclick="return confirm(\'Willst Du das Modul wirklich deinstallieren?\')">';
-				echo '<i class="fa fa-trash" aria-hidden="true"></i>';
-				echo '</a>';
-			}
-		}
+                echo '<form method="post" action="index.php?pid=modules" class="d-inline" onsubmit="return confirm(\'Willst Du das Modul wirklich deinstallieren?\')">';
+                echo '<input type="hidden" name="action" value="uninstallModule" />';
+                echo '<input type="hidden" name="module" value="' .$libString->protectXSS((string) $key). '" />';
+                echo '<button type="submit" class="p-0 border-0 bg-transparent align-baseline text-dark cursor-pointer"><i class="fa fa-trash" aria-hidden="true"></i></button>';
+                echo '</form>';
+            }
+        }
 
-		echo '</td>';
-		echo '</tr>';
-	}
+        echo '</td>';
+        echo '</tr>';
+    }
 
-	echo '</table>';
-	echo '</div>';
-	echo '</div>';
+    echo '</table>';
+    echo '</div>';
+    echo '</div>';
 
-	$libRepositoryClient->resetTempDirectory();
-	$libCronjobs->executeJobs();
+    $libRepositoryClient->resetTempDirectory();
+    $libCronjobs->executeJobs();
 }

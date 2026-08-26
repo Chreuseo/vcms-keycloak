@@ -1,4 +1,5 @@
 <?php
+
 /*
 This file is part of VCMS.
 
@@ -16,26 +17,27 @@ You should have received a copy of the GNU General Public License
 along with VCMS. If not, see <http://www.gnu.org/licenses/>.
 */
 
-if(!is_object($libGlobal))
-	exit();
+if (!is_object($libGlobal)) {
+    exit();
+}
 
 
 $associationSchema = $libAssociation->getAssociationSchema();
 
 echo '<script type="application/ld+json">';
-echo json_encode($associationSchema);
+echo str_replace(['<', '>', '&'], ['\u003c', '\u003e', '\u0026'], json_encode($associationSchema));
 echo '</script>';
 
 echo '<section class="contact-box">';
 echo '<div class="container">';
 echo '<div class="row">';
-echo '<div class="col-lg-8 col-lg-offset-2 text-center">';
+echo '<div class="col-lg-8 offset-lg-2 text-center">';
 
 echo '<h1 class="section-heading">Kontakt</h1>';
 echo '<hr>';
 echo '<p class="mb-4">Interesse geweckt? Großartig! Melde Dich bei uns und wir antworten Dir schnellstmöglich.</p>';
 echo '</div>';
-echo '<div class="col-lg-4 col-lg-offset-2 text-center">';
+echo '<div class="col-lg-4 offset-lg-2 text-center">';
 echo '<i class="fa fa-phone fa-3x sr-contact reveal"></i>';
 echo '<p class="mb-4">' .$libConfig->verbindungTelefon. '</p>';
 echo '</div>';

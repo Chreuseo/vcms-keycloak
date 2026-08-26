@@ -1,4 +1,5 @@
 <?php
+
 /*
 This file is part of VCMS.
 
@@ -16,30 +17,19 @@ You should have received a copy of the GNU General Public License
 along with VCMS. If not, see <http://www.gnu.org/licenses/>.
 */
 
+if (!is_object($libGlobal)) {
+    exit();
+}
+
+
 /*
 * configuration
 */
 
-if(!$libGenericStorage->attributeExistsInCurrentModule('ssl_proxy_url')){
-	$libGenericStorage->saveValueInCurrentModule('ssl_proxy_url', '');
+if (!$libGenericStorage->attributeExistsInCurrentModule('ssl_proxy_url')) {
+    $libGenericStorage->saveValueInCurrentModule('ssl_proxy_url', '');
 }
 
-// Bei aktiviertem Keycloak: Nur Button anzeigen
-if(isset($libConfig->keycloakEnabled) && $libConfig->keycloakEnabled){
-	echo '<h1>Intranet-Login</h1>';
-	echo $libString->getErrorBoxText();
-	echo $libString->getNotificationBoxText();
-
-	// Button startet serverseitige Weiterleitung (PKCE/Code-Flow)
-	echo '<div class="panel panel-default">';
-	echo '<div class="panel-body">';
-	echo '<a class="btn btn-primary" href="index.php?pid=login&amp;kc_start=1">Mit Keycloak anmelden</a>';
-	echo '</div>';
-	echo '</div>';
-	return;
-}
-
-// --- Lokaler Login (nur wenn Keycloak deaktiviert ist) ---
 
 echo '<h1>Intranet-Login</h1>';
 
@@ -47,17 +37,18 @@ echo $libString->getErrorBoxText();
 echo $libString->getNotificationBoxText();
 
 $urlPrefix = '';
-if($libGlobal->getSiteUrlAuthority() != ''){
-	$sslProxyUrl = $libGenericStorage->loadValueInCurrentModule('ssl_proxy_url');
 
-	if($sslProxyUrl != ''){
-		$urlPrefix = 'https://' . $sslProxyUrl . '/' . $libGlobal->getSiteUrlAuthority() . '/';
-	}
+if ($libGlobal->getSiteUrlAuthority() != '') {
+    $sslProxyUrl = $libGenericStorage->loadValueInCurrentModule('ssl_proxy_url');
+
+    if ($sslProxyUrl != '') {
+        $urlPrefix = 'https://' . $sslProxyUrl . '/' . $libGlobal->getSiteUrlAuthority() . '/';
+    }
 }
 
-echo '<div class="panel panel-default">';
-echo '<div class="panel-body">';
-echo '<form action="' .$urlPrefix. 'index.php?pid=intranet_home" method="post" class="form-horizontal">';
+echo '<div class="card">';
+echo '<div class="card-body">';
+echo '<form action="' .$libString->protectXSS($urlPrefix). 'index.php?pid=intranet_home" method="post">';
 echo '<fieldset>';
 
 $libForm->printTextInput('intranet_login_email', 'E-Mail-Adresse', '', 'email', false, true);

@@ -1,4 +1,5 @@
 <?php
+
 /*
 This file is part of VCMS.
 
@@ -18,133 +19,139 @@ along with VCMS. If not, see <http://www.gnu.org/licenses/>.
 
 namespace vcms;
 
-use PDO;
+class LibSecurityManager
+{
+    public $possibleOffices = [
+            'senior', 'consenior', 'fuchsmajor', 'fuchsmajor2', 'scriptor', 'quaestor', 'jubelsenior',
+            'ahv_senior', 'ahv_consenior', 'ahv_keilbeauftragter', 'ahv_scriptor', 'ahv_quaestor', 'ahv_beisitzer1', 'ahv_beisitzer2',
+            'hv_vorsitzender', 'hv_kassierer', 'hv_beisitzer1', 'hv_beisitzer2',
+            'archivar', 'ausflugswart',
+            'bierwart', 'bootshauswart',
+            'couleurartikelwart',
+            'dachverbandsberichterstatter', 'datenpflegewart',
+            'fechtwart', 'ferienordner', 'fotowart',
+            'hauswart', 'huettenwart',
+            'internetwart',
+            'kuehlschrankwart',
+            'musikwart',
+            'redaktionswart',
+            'sportwart', 'stammtischwart',
+            'technikwart', 'thekenwart',
+            'wirtschaftskassenwart', 'wichswart',
+            'vop', 'vvop', 'vopxx', 'vopxxx', 'vopxxxx'];
 
-class LibSecurityManager{
-	var $possibleAemter = array(
-			'senior', 'consenior', 'fuchsmajor', 'fuchsmajor2', 'scriptor', 'quaestor', 'jubelsenior',
-			'ahv_senior', 'ahv_consenior', 'ahv_keilbeauftragter', 'ahv_scriptor', 'ahv_quaestor', 'ahv_beisitzer1', 'ahv_beisitzer2',
-			'hv_vorsitzender', 'hv_kassierer', 'hv_beisitzer1', 'hv_beisitzer2',
-			'archivar', 'ausflugswart',
-			'bierwart', 'bootshauswart',
-			'couleurartikelwart',
-			'dachverbandsberichterstatter', 'datenpflegewart',
-			'fechtwart', 'ferienordner', 'fotowart',
-			'hauswart', 'huettenwart',
-			'internetwart',
-			'kuehlschrankwart',
-			'musikwart',
-			'redaktionswart',
-			'sportwart', 'stammtischwart',
-			'technikwart', 'thekenwart',
-			'wirtschaftskassenwart', 'wichswart',
-			'vop', 'vvop', 'vopxx', 'vopxxx', 'vopxxxx');
+    public function getPossibleOffices()
+    {
+        return $this->possibleOffices;
+    }
 
-	function getPossibleAemter(){
-		return $this->possibleAemter;
-	}
+    public function hasAccess($libElement, $libAuth)
+    {
+        //public page?
+        if (!$libElement->hasAccessRestriction()) {
+            return true;
+        } else { //internal page?
+            //not logged in?
+            if (!$libAuth->isLoggedIn()) {
+                return false;
+            }
 
-	function hasAccess($libElement, $libAuth){
-		//public page?
-		if(!$libElement->hasAccessRestriction()){
-			return true;
-		} else { //internal page?
-			//not logged in?
-			if(!$libAuth->isLoggedin()){
-				return false;
-			}
+            $accessRestriction = $libElement->getAccessRestriction();
 
-			$accessRestriction = $libElement->getAccessRestriction();
+            //enough rights?
+            if ($accessRestriction->isFulfilledBy($libAuth->getGroup(), $libAuth->getOffices())) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    }
 
-			//enough rights?
-			if($accessRestriction->isFulfilledBy($libAuth->getGruppe(), $libAuth->getAemter())){
-				return true;
-			} else {
-				return false;
-			}
-		}
-	}
+    public function generateAggregatedAccessRestriction($accessRestrictions)
+    {
+        $includedGroups = [];
+        $modifyGroups = true;
+        $freshGroups = true;
 
-	function generateAggregatedAccessRestriction($accessRestrictions){
-		$includedGruppen = array();
-		$modifyGruppen = true;
-		$freshGruppen = true;
+        $includedOffices = [];
+        $modifyOffices = true;
+        $freshOffices = true;
 
-		$includedAemter = array();
-		$modifyAemter = true;
-		$freshAemter = true;
+        //no foreach, as otherwise php4 does copy-by-value!
+        for ($i = 0; $i < count($accessRestrictions); $i++) {
+            $accessRestriction = $accessRestrictions[$i];
 
-		//no foreach, as otherwise php4 does copy-by-value!
-		for($i=0; $i<count($accessRestrictions); $i++){
-			$accessRestriction = $accessRestrictions[$i];
+            /*
+            * aggregate groups
+            */
+            if ($modifyGroups) {
+                //element without group restriction?
+                if (!$accessRestriction->hasGroupsRestriction()) {
+                    //remove group filder
+                    $includedGroups = [];
+                    //protect group filter from modification
+                    $modifyGroups = false;
+                    $freshGroups = false;
+                }
+                //element with group restriction
+                else {
+                    //first iteration
+                    if ($freshGroups) {
+                        //add all groups
+                        $includedGroups = $accessRestriction->getGroups();
+                        $freshGroups = false;
+                    } else {
+                        //remove all groups not contained in the restriction
+                        $includedGroups = array_unique(array_merge(
+                            $includedGroups,
+                            $accessRestriction->getGroups()
+                        ));
+                    }
+                }
+            }
 
-			/*
-			* aggregate groups
-			*/
-			if($modifyGruppen){
-				//element without group restriction?
-				if(!$accessRestriction->hasGruppenRestriction()){
-					//remove group filder
-					$includedGruppen = array();
-					//protect group filter from modification
-					$modifyGruppen = false;
-					$freshGruppen = false;
-				}
-				//element with group restriction
-				else{
-					//first iteration
-					if($freshGruppen){
-						//add all groups
-						$includedGruppen = $accessRestriction->getGruppen();
-						$freshGruppen = false;
-					} else {
-						//remove all groups not contained in the restriction
-						$includedGruppen = array_unique(array_merge(
-							$includedGruppen, $accessRestriction->getGruppen()));
-					}
-				}
-			}
+            /*
+            * aggregate functions
+            */
+            if ($modifyOffices) {
+                //element without function restriction?
+                if (!$accessRestriction->hasOfficesRestriction()) {
+                    //remove function filter
+                    $includedOffices = [];
+                    //protect function filter from modification
+                    $modifyOffices = false;
+                    $freshOffices = false;
+                }
+                //element with function restriction
+                else {
+                    //if first iteration
+                    if ($freshOffices) {
+                        //add all functions
+                        $includedOffices = $accessRestriction->getOffices();
+                        $freshOffices = false;
+                    } else {
+                        //remove all functions not contained in the restriction
+                        $includedOffices = array_unique(array_merge(
+                            $includedOffices,
+                            $accessRestriction->getOffices()
+                        ));
+                    }
+                }
+            }
+        }
 
-			/*
-			* aggregate functions
-			*/
-			if($modifyAemter){
-				//element without function restriction?
-				if(!$accessRestriction->hasAemterRestriction()){
-					//remove function filter
-					$includedAemter = array();
-					//protect function filter from modification
-					$modifyAemter = false;
-					$freshAemter = false;
-				}
-				//element with function restriction
-				else{
-					//if first iteration
-					if($freshAemter){
-						//add all functions
-						$includedAemter = $accessRestriction->getAemter();
-						$freshAemter = false;
-					} else {
-						//remove all functions not contained in the restriction
-						$includedAemter = array_unique(array_merge(
-							$includedAemter, $accessRestriction->getAemter()));
-					}
-				}
-			}
-		}
+        if (count($includedGroups) == 0) {
+            $includedGroups = '';
+        } else {
+            $includedGroups = array_values(array_unique($includedGroups));
+        }
 
-		if(count($includedGruppen) == 0){
-			$includedGruppen = '';
-		} else {
-			$includedGruppen = array_values(array_unique($includedGruppen));
-		}
+        if (count($includedOffices) == 0) {
+            $includedOffices = '';
+        } else {
+            $includedOffices = array_values(array_unique($includedOffices));
+        }
 
-		if(count($includedAemter) == 0){
-			$includedAemter = '';
-		} else {
-			$includedAemter = array_values(array_unique($includedAemter));
-		}
-
-		return new \vcms\module\LibAccessRestriction($includedGruppen, $includedAemter);
-	}
+        return new \vcms\module\LibAccessRestriction($includedGroups, $includedOffices);
+    }
 }

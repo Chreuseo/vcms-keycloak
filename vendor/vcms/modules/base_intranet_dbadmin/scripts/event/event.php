@@ -1,4 +1,5 @@
 <?php
+
 /*
 This file is part of VCMS.
 
@@ -16,154 +17,160 @@ You should have received a copy of the GNU General Public License
 along with VCMS. If not, see <http://www.gnu.org/licenses/>.
 */
 
-if(!is_object($libGlobal) || !$libAuth->isLoggedin())
-	exit();
+if (!is_object($libGlobal) || !$libAuth->isLoggedin()) {
+    exit();
+}
 
 
-if($libAuth->isLoggedin()){
+if ($libAuth->isLoggedin()) {
 
-	$id = '';
+    $id = '';
 
-	if(isset($_REQUEST['id'])){
-		$id = $_REQUEST['id'];
-	}
+    if (isset($_REQUEST['id'])) {
+        $id = $_REQUEST['id'];
+    }
 
-	$aktion = '';
+    $action = '';
 
-	if(isset($_REQUEST['aktion'])){
-		$aktion = $_REQUEST['aktion'];
-	}
+    if (isset($_REQUEST['action'])) {
+        $action = $_REQUEST['action'];
+    }
 
-	$varray = array();
-	//Felder in der Tabelle angeben -> Metadaten
-	$felder = array('titel', 'datum', 'datum_ende', 'spruch', 'beschreibung', 'status', 'ort', 'fb_eventid', 'intern');
+    $eventRow = [];
+    // Specify the fields of the table -> metadata
+    $fields = ['titel', 'datum', 'datum_ende', 'spruch', 'beschreibung', 'status', 'ort', 'fb_eventid', 'intern'];
 
-	/**
-	*
-	* Verschiedene Aktionen auf der Datenbank durchführen, je nach Kontext
-	* der durch aktion definiert wird
-	*
-	*/
+    /**
+    *
+    * Perform different actions on the database, depending on the context
+    * defined by action
+    *
+    */
 
-	//neue Veranstaltung, leerer Datensatz
-	if($aktion == 'blank'){
-		$varray['id'] = '';
-		$varray['datum'] = @date('Y-m-d H:i:s');
-		$varray['datum_ende'] = '';
-		$varray['titel'] = 'Titel angeben!';
-		$varray['spruch'] = '';
-		$varray['beschreibung'] = '';
-		$varray['status'] = '';
-		$varray['ort'] = '';
-		$varray['fb_eventid'] = '';
-		$varray['intern'] = $libGenericStorage->loadValue('base_core', 'event_preselect_intern');
-	}
-	//Daten wurden mit blank eingegeben, werden nun gespeichert
-	elseif($aktion == 'insert'){
-		if(!isset($_POST['form_complete']) || !$_POST['form_complete']){
-			die('Die Eingabemaske war noch nicht komplett dargestellt. Bitte Seite neu laden.');
-		}
+    // New event, empty record
+    if ($action == 'blank') {
+        $eventRow['id'] = '';
+        $eventRow['datum'] = @date('Y-m-d H:i:s');
+        $eventRow['datum_ende'] = '';
+        $eventRow['titel'] = 'Titel angeben!';
+        $eventRow['spruch'] = '';
+        $eventRow['beschreibung'] = '';
+        $eventRow['status'] = '';
+        $eventRow['ort'] = '';
+        $eventRow['fb_eventid'] = '';
+        $eventRow['intern'] = $libGenericStorage->loadValue('base_core', 'event_preselect_intern');
+    }
+    // Data was entered with blank, now being saved
+    elseif ($action == 'insert') {
+        if (!isset($_POST['form_complete']) || !$_POST['form_complete']) {
+            die('Die Eingabemaske war noch nicht komplett dargestellt. Bitte Seite neu laden.');
+        }
 
-		$valueArray = $_REQUEST;
-		$valueArray['datum'] = $libTime->assureMysqlDateTime($valueArray['datum']);
-		$valueArray['datum_ende'] = $libTime->assureMysqlDateTime($valueArray['datum_ende']);
+        $valueArray = $_REQUEST;
+        $valueArray['datum'] = $libTime->assureMysqlDateTime($valueArray['datum']);
+        $valueArray['datum_ende'] = $libTime->assureMysqlDateTime($valueArray['datum_ende']);
 
-		if($valueArray['datum_ende'] != '0000-00-00 00:00:00' &&
-				$valueArray['datum_ende'] != '' &&
-				$valueArray['datum_ende'] < $valueArray['datum']){
-			$valueArray['datum_ende'] = '';
-			$libGlobal->errorTexts[] = 'Das Enddatum liegt vor dem Startdatum.';
-		}
+        if ($valueArray['datum_ende'] != '0000-00-00 00:00:00' &&
+                $valueArray['datum_ende'] != '' &&
+                $valueArray['datum_ende'] < $valueArray['datum']) {
+            $valueArray['datum_ende'] = '';
+            $libGlobal->errorTexts[] = 'Das Enddatum liegt vor dem Startdatum.';
+        }
 
-		$varray = $libDb->insertRow($felder, $valueArray, 'base_veranstaltung', array('id' => ''));
-	}
-	//bestehende Daten werden modifiziert
-	elseif($aktion == 'update'){
-		if(!isset($_POST['form_complete']) || !$_POST['form_complete'])
-			die('Die Eingabemaske war noch nicht komplett dargestellt. Bitte Seite neu laden.');
+        $eventRow = $libDb->insertRow($fields, $valueArray, 'base_veranstaltung', ['id' => '']);
+    }
+    // Existing data is being modified
+    elseif ($action == 'update') {
+        if (!isset($_POST['form_complete']) || !$_POST['form_complete']) {
+            die('Die Eingabemaske war noch nicht komplett dargestellt. Bitte Seite neu laden.');
+        }
 
-		$valueArray = $_REQUEST;
-		$valueArray['datum'] = $libTime->assureMysqlDateTime($valueArray['datum']);
-		$valueArray['datum_ende'] = $libTime->assureMysqlDateTime($valueArray['datum_ende']);
+        $valueArray = $_REQUEST;
+        $valueArray['datum'] = $libTime->assureMysqlDateTime($valueArray['datum']);
+        $valueArray['datum_ende'] = $libTime->assureMysqlDateTime($valueArray['datum_ende']);
 
-		if($valueArray['datum_ende'] != '0000-00-00 00:00:00' &&
-				$valueArray['datum_ende'] != '' &&
-				$valueArray['datum_ende'] < $valueArray['datum']){
-			$valueArray['datum_ende'] = '';
-			$libGlobal->errorTexts[] = 'Das Enddatum liegt vor dem Startdatum.';
-		}
+        if ($valueArray['datum_ende'] != '0000-00-00 00:00:00' &&
+                $valueArray['datum_ende'] != '' &&
+                $valueArray['datum_ende'] < $valueArray['datum']) {
+            $valueArray['datum_ende'] = '';
+            $libGlobal->errorTexts[] = 'Das Enddatum liegt vor dem Startdatum.';
+        }
 
-		$varray = $libDb->updateRow($felder, $valueArray, 'base_veranstaltung', array('id' => $id));
-	} else {
-		$stmt = $libDb->prepare('SELECT * FROM base_veranstaltung WHERE id=:id');
-		$stmt->bindValue(':id', $id, PDO::PARAM_INT);
-		$stmt->execute();
-		$varray = $stmt->fetch(PDO::FETCH_ASSOC);
-	}
+        $eventRow = $libDb->updateRow($fields, $valueArray, 'base_veranstaltung', ['id' => $id]);
+    } else {
+        $stmt = $libDb->prepare('SELECT * FROM base_veranstaltung WHERE id=:id');
+        $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+        $stmt->execute();
+        $eventRow = $stmt->fetch(PDO::FETCH_ASSOC);
+    }
 
-	if($libEvent->hasBannedTitle($id)){
-		$libGlobal->errorTexts[] = 'Der Veranstaltungstitel ist nicht optimal.';
-	}
+    if ($libEvent->hasBannedTitle($id)) {
+        $libGlobal->errorTexts[] = 'Der Veranstaltungstitel ist nicht optimal.';
+    }
 
-	/**
-	*
-	* Einleitender Text
-	*
-	*/
+    /**
+    *
+    * Introductory text
+    *
+    */
 
-	echo '<h1>Veranstaltung</h1>';
+    echo '<h1>Veranstaltung</h1>';
 
-	echo $libString->getErrorBoxText();
-	echo $libString->getNotificationBoxText();
+    echo $libString->getErrorBoxText();
+    echo $libString->getNotificationBoxText();
 
-	echo '<p class="mb-4">Hier können sämtliche Daten einer Veranstaltung bearbeitet werden.</p>';
-	echo '<hr />';
+    echo '<p class="mb-4">Hier können sämtliche Daten einer Veranstaltung bearbeitet werden.</p>';
+    echo '<hr />';
 
-	/**
-	*
-	* Löschoption
-	*
-	*/
-	if($varray['id'] != ''){
-		echo '<p class="mb-4"><a href="index.php?pid=intranet_admin_events&amp;aktion=delete&amp;id='.$varray['id'].'" onclick="return confirm(\'Willst Du den Datensatz wirklich löschen?\')"><i class="fa fa-trash" aria-hidden="true"></i> Datensatz löschen</a></p>';
-	}
+    /**
+    *
+    * Deletion option
+    *
+    */
+    if ($eventRow['id'] != '') {
+        echo '<form class="mb-4" method="post" action="index.php?pid=intranet_admin_events" onsubmit="return confirm(\'Willst Du den Datensatz wirklich löschen?\')">';
+        echo '<input type="hidden" name="action" value="delete" />';
+        echo '<input type="hidden" name="id" value="' .$eventRow['id']. '" />';
+        echo '<button type="submit" class="p-0 border-0 bg-transparent align-baseline text-dark cursor-pointer"><i class="fa fa-trash" aria-hidden="true"></i> Datensatz löschen</button>';
+        echo '</form>';
+    }
 
-	/**
-	*
-	* Ausgabe des Forms starten
-	*
-	*/
+    /**
+    *
+    * Start form output
+    *
+    */
 
-	if($aktion == 'blank'){
-		$extraActionParam = '&amp;aktion=insert';
-	} else {
-		$extraActionParam = '&amp;aktion=update';
-	}
+    if ($action == 'blank') {
+        $extraActionParam = '&amp;action=insert';
+    } else {
+        $extraActionParam = '&amp;action=update';
+    }
 
-	echo '<div class="panel panel-default">';
-	echo '<div class="panel-body">';
-	echo '<form action="index.php?pid=intranet_admin_event' .$extraActionParam. '" method="post" class="form-horizontal">';
-	echo '<fieldset>';
-	echo '<input type="hidden" name="formtyp" value="veranstaltungsdaten" />';
-	echo '<input type="hidden" name="id" value="' .$varray['id']. '" />';
+    echo '<div class="card">';
+    echo '<div class="card-body">';
+    echo '<form action="index.php?pid=intranet_admin_event' .$extraActionParam. '" method="post">';
+    echo '<fieldset>';
+    echo '<input type="hidden" name="formType" value="eventData" />';
+    echo '<input type="hidden" name="id" value="' .$eventRow['id']. '" />';
 
-	$libForm->printTextInput('id', 'Id', $varray['id'], 'text', true);
-	$libForm->printTextInput('datum', 'Startdatum (falls ganztägig: Uhrzeit 00:00:00)', $varray['datum'], 'datetime');
-	$libForm->printTextInput('datum_ende', 'Enddatum (optional; falls ganztägig: Uhrzeit 00:00:00)', $varray['datum_ende'], 'datetime');
-	$libForm->printTextInput('titel', 'Titel', $varray['titel']);
-	$libForm->printTextInput('spruch', 'Spruch', $varray['spruch']);
-	$libForm->printTextarea('beschreibung', 'Beschreibung', $varray['beschreibung']);
-	$libForm->printTextInput('status', 'Status (Maximal 2 Buchstaben, z. B. ho oder o)', $varray['status']);
-	$libForm->printTextInput('ort', 'Ort', $varray['ort']);
-	$libForm->printTextInput('fb_eventid', '<i class="fa fa-facebook-official" aria-hidden="true"></i> Event-Id', $varray['fb_eventid']);
-	$libForm->printBoolSelectBox('intern', 'Intern', $varray['intern']);
+    $libForm->printTextInput('id', 'Id', $eventRow['id'], 'text', true);
+    $libForm->printDateTimeInput('datum', 'Beginn (Uhrzeit 00:00 = ganztägig)', $eventRow['datum']);
+    $libForm->printDateTimeInput('datum_ende', 'Ende (optional, Uhrzeit 00:00 = ganztägig)', $eventRow['datum_ende']);
+    $libForm->printTextInput('titel', 'Titel', $eventRow['titel']);
+    $libForm->printTextInput('spruch', 'Spruch', $eventRow['spruch']);
+    $libForm->printTextarea('beschreibung', 'Beschreibung', $eventRow['beschreibung']);
+    $libForm->printTextInput('status', 'Status (Maximal 2 Buchstaben, z. B. ho oder o)', $eventRow['status']);
+    $libForm->printTextInput('ort', 'Ort', $eventRow['ort']);
+    $libForm->printTextInput('fb_eventid', '<i class="fa fa-facebook-official" aria-hidden="true"></i> Event-Id', $eventRow['fb_eventid']);
+    $libForm->printBoolSelectBox('intern', 'Intern', $eventRow['intern']);
 
-	echo '<input type="hidden" name="form_complete" value="1" />';
+    echo '<input type="hidden" name="form_complete" value="1" />';
 
-	$libForm->printSubmitButton('Speichern');
+    $libForm->printSubmitButton('Speichern');
 
-	echo '</fieldset>';
-	echo '</form>';
-	echo '</div>';
-	echo '</div>';
+    echo '</fieldset>';
+    echo '</form>';
+    echo '</div>';
+    echo '</div>';
 }

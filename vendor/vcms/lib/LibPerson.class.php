@@ -1,4 +1,5 @@
 <?php
+
 /*
 This file is part of VCMS.
 
@@ -20,203 +21,227 @@ namespace vcms;
 
 use PDO;
 
-class LibPerson{
+class LibPerson
+{
+    public function getNameString($id, $mode)
+    {
+        global $libDb;
 
-	function getNameString($id, $mode){
-		global $libDb;
+        $stmt = $libDb->prepare("SELECT anrede, titel, rang, vorname, praefix, name, suffix FROM base_person WHERE id=:id");
+        $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+        $stmt->execute();
+        $memberRow = $stmt->fetch(PDO::FETCH_ASSOC);
 
-		$stmt = $libDb->prepare("SELECT anrede, titel, rang, vorname, praefix, name, suffix FROM base_person WHERE id=:id");
-		$stmt->bindValue(':id', $id, PDO::PARAM_INT);
-		$stmt->execute();
-		$mitgliedarray = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!is_array($memberRow)) {
+            return '';
+        }
 
-		$mitgliedstring = $this->formatNameString($mitgliedarray['anrede'], $mitgliedarray['titel'], $mitgliedarray['rang'], $mitgliedarray['vorname'], $mitgliedarray['praefix'], $mitgliedarray['name'], $mitgliedarray['suffix'], $mode);
+        $memberString = $this->formatNameString($memberRow['anrede'], $memberRow['titel'], $memberRow['rang'], $memberRow['vorname'], $memberRow['praefix'], $memberRow['name'], $memberRow['suffix'], $mode);
 
-		return $mitgliedstring;
-	}
+        return $memberString;
+    }
 
-	function formatNameString($anrede, $titel, $rang, $vorname, $praefix, $name, $suffix, $mode = 0){
-		$string = '';
+    public function formatNameString($salutation, $title, $rank, $firstName, $prefix, $name, $suffix, $mode = 0)
+    {
+        $salutation = (string) $salutation;
+        $title = (string) $title;
+        $rank = (string) $rank;
+        $firstName = (string) $firstName;
+        $prefix = (string) $prefix;
+        $name = (string) $name;
+        $suffix = (string) $suffix;
 
-		if ($suffix != ''){
-			$suffix = ' '.$suffix;
-		} else {
-			$suffix = '';
-		}
+        $string = '';
 
-		if($mode == 0){ //voller Name ohne Herr: Dr. Heinz van Husen LLM
-			$string .= $titel. ' ' .$vorname. ' ' .$praefix. ' ' .$name.$suffix;
-		} elseif($mode == 1){ //umgedreht: van Husen LLM, Dr. Heinz
-			$string .= $praefix. ' ' .$name.$suffix. ', ' .$titel. ' ' .$vorname;
-		} elseif($mode == 2){ //volle Anrede: Herr Dr. Professor Heinz van Husen LLM
-			$string .= $anrede. ' ' .$titel. ' ' .$rang. ' ' .$vorname. ' ' .$praefix. ' ' .$name.$suffix;
-		} elseif($mode == 3){ //Vorname: Heinz
-			$string .= $vorname;
-		} elseif($mode == 4){ //titulierter Name, aber nur mit dem ersten Vornamen
-			$vornamen = explode(' ',$vorname);
-			$erstervorname = $vornamen[0];
-			$string .= $titel. ' ' .$erstervorname. ' ' .$praefix. ' ' .$name.$suffix;
-		} elseif($mode == 5){ //Name ohne Herr und Titel: Heinz van Husen LLM
-			$string .= $vorname. ' ' .$praefix. ' ' .$name.$suffix;
-		} elseif($mode == 6){ //volle Anrede ohne Herr: Dr. Professor Heinz van Husen LLM
-			$string .= $titel. ' ' .$rang. ' ' .$vorname. ' ' .$praefix. ' ' .$name.$suffix;
-		} elseif($mode == 7){ //umgedreht ohne Titel: van Husen LLM, Heinz
-			$string .= $praefix. ' ' .$name.$suffix. ', ' .$vorname;
-		} elseif($mode == 8){ //abgekürzt: M. Meyer
-			$string .= substr($vorname, 0, 1). '. ' .$name;
-		}
+        if ($suffix != '') {
+            $suffix = ' '.$suffix;
+        } else {
+            $suffix = '';
+        }
 
-		$string = str_replace('  ', ' ', str_replace('  ', ' ', trim($string)));
+        if ($mode == 0) { // Full name without Mr: Dr. Heinz van Husen LLM
+            $string .= $title. ' ' .$firstName. ' ' .$prefix. ' ' .$name.$suffix;
+        } elseif ($mode == 1) { // Reversed: van Husen LLM, Dr. Heinz
+            $string .= $prefix. ' ' .$name.$suffix. ', ' .$title. ' ' .$firstName;
+        } elseif ($mode == 2) { // Full salutation: Herr Dr. Professor Heinz van Husen LLM
+            $string .= $salutation. ' ' .$title. ' ' .$rank. ' ' .$firstName. ' ' .$prefix. ' ' .$name.$suffix;
+        } elseif ($mode == 3) { // First name: Heinz
+            $string .= $firstName;
+        } elseif ($mode == 4) { // Titled name, but only with the first of the given first names
+            $firstNames = explode(' ', $firstName);
+            $firstFirstName = $firstNames[0];
+            $string .= $title. ' ' .$firstFirstName. ' ' .$prefix. ' ' .$name.$suffix;
+        } elseif ($mode == 5) { // Name without Mr and title: Heinz van Husen LLM
+            $string .= $firstName. ' ' .$prefix. ' ' .$name.$suffix;
+        } elseif ($mode == 6) { // Full salutation without Mr: Dr. Professor Heinz van Husen LLM
+            $string .= $title. ' ' .$rank. ' ' .$firstName. ' ' .$prefix. ' ' .$name.$suffix;
+        } elseif ($mode == 7) { // Reversed without title: van Husen LLM, Heinz
+            $string .= $prefix. ' ' .$name.$suffix. ', ' .$firstName;
+        } elseif ($mode == 8) { // Abbreviated: M. Meyer
+            $string .= substr($firstName, 0, 1). '. ' .$name;
+        }
 
-		return $string;
-	}
+        $string = str_replace('  ', ' ', str_replace('  ', ' ', trim($string)));
 
-	function getIntranetActivity($id){
-		global $libDb;
+        return $string;
+    }
 
-		/*
-		* define constants
-		*/
-		$durchschnittszeitraum = 14; //days
-		$fullpercentlimit = 1; //points per day, that induce 100% activity
+    public function getIntranetActivity($id)
+    {
+        global $libDb;
 
-		/*
-		* sum points
-		*/
-		$stmt = $libDb->prepare("SELECT SUM(punkte) AS summe FROM sys_log_intranet WHERE mitglied = :mitglied AND DATE_SUB(CURDATE(),INTERVAL :interval DAY) <= datum");
-		$stmt->bindValue(':mitglied', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':interval', $durchschnittszeitraum, PDO::PARAM_INT);
-		$stmt->execute();
-		$stmt->bindColumn('summe', $fullpunkte);
-		$stmt->fetch();
+        /*
+        * define constants
+        */
+        $averagePeriod = 14; //days
+        $fullpercentlimit = 1; //points per day, that induce 100% activity
 
-		/*
-		* average points per day
-		*/
-		$avg_punkte_perday = $fullpunkte / $durchschnittszeitraum;
+        /*
+        * sum points
+        */
+        $stmt = $libDb->prepare("SELECT SUM(punkte) AS summe FROM sys_log_intranet WHERE mitglied = :mitglied AND DATE_SUB(CURDATE(),INTERVAL :interval DAY) <= datum");
+        $stmt->bindValue(':mitglied', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':interval', $averagePeriod, PDO::PARAM_INT);
+        $stmt->execute();
+        $stmt->bindColumn('summe', $fullPoints);
+        $stmt->fetch();
 
-		/*
-		* calculate activity metric
-		*/
-		$activity = min($avg_punkte_perday / $fullpercentlimit, 1);
-		return $activity;
-	}
+        /*
+        * average points per day
+        */
+        $avgPointsPerDay = $fullPoints / $averagePeriod;
 
-	function getIntranetActivityBox($id){
-		global $libDb;
+        /*
+        * calculate activity metric
+        */
+        $activity = min($avgPointsPerDay / $fullpercentlimit, 1);
+        return $activity;
+    }
 
-		// determine group
-		$stmt = $libDb->prepare("SELECT gruppe FROM base_person WHERE id=:id");
-		$stmt->bindValue(':id', $id, PDO::PARAM_INT);
-		$stmt->execute();
-		$stmt->bindColumn('gruppe', $gruppe);
-		$stmt->fetch();
+    public function getIntranetActivityBox($id)
+    {
+        global $libDb;
 
-		$retstr = '<div class="person-activity-box">';
+        // determine group
+        $stmt = $libDb->prepare("SELECT gruppe FROM base_person WHERE id=:id");
+        $stmt->bindValue(':id', $id, PDO::PARAM_INT);
+        $stmt->execute();
+        $stmt->bindColumn('gruppe', $group);
+        $stmt->fetch();
 
-		if($gruppe != 'T' && $gruppe != 'V'){
-			$activityPercent = $this->getIntranetActivity($id) * 100;
-			$balkenBreiteActivity = ceil($activityPercent);
-			$balkenBreiteInactivity = 100 - $balkenBreiteActivity;
+        $retstr = '<div class="person-activity-box">';
 
-			if($balkenBreiteActivity > 0){
-				$retstr .= '<span class="person-activity-bar person-activity-bar-active" style="width:' .$balkenBreiteActivity. '%"></span>';
-			}
+        if ($group != 'T' && $group != 'V') {
+            $activityPercent = $this->getIntranetActivity($id) * 100;
+            $barWidthActivity = ceil($activityPercent);
+            $barWidthInactivity = 100 - $barWidthActivity;
 
-			if($balkenBreiteInactivity > 0){
-				$retstr .= '<span class="person-activity-bar person-activity-bar-inactive" style="width:' .$balkenBreiteInactivity. '%"></span>';
-			}
-		} else {
-			// required for correct height of cell in bootstrap row
-			$retstr .= '<span class="person-activity-bar"></span>';
-		}
+            if ($barWidthActivity > 0) {
+                $retstr .= '<span class="person-activity-bar person-activity-bar-active" style="width:' .$barWidthActivity. '%"></span>';
+            }
 
-		$retstr .= '</div>';
+            if ($barWidthInactivity > 0) {
+                $retstr .= '<span class="person-activity-bar person-activity-bar-inactive" style="width:' .$barWidthInactivity. '%"></span>';
+            }
+        } else {
+            // required for correct height of cell in bootstrap row
+            $retstr .= '<span class="person-activity-bar"></span>';
+        }
 
-		return $retstr;
-	}
+        $retstr .= '</div>';
 
-	function getSignature($id){
-		$retstr = '<div class="person-signature-box center-block mb-3">';
+        return $retstr;
+    }
 
-		$retstr .= '<div class="img-box">';
-		$retstr .= $this->getImage($id);
-		$retstr .= '</div>';
+    public function getSignature($id)
+    {
+        $retstr = '<div class="person-signature-box d-block mx-auto mb-3">';
 
-		$retstr .= $this->getIntranetActivityBox($id);
-		$retstr .= '</div>';
+        $retstr .= '<div class="img-box">';
+        $retstr .= $this->getImage($id);
+        $retstr .= '</div>';
 
-		return $retstr;
-	}
+        $retstr .= $this->getIntranetActivityBox($id);
+        $retstr .= '</div>';
 
-	function getImage($id, $size = 'md'){
-		$retstr = '<a href="index.php?pid=intranet_person&amp;id=' .$id. '" class="person-profile-link">';
-		$sizeClass = '';
+        return $retstr;
+    }
 
-		switch($size){
-			case 'xs':
-				$sizeClass = 'person-img-xs';
-				break;
-			case 'lg':
-				$sizeClass = 'person-img-lg';
-				break;
-			default:
-				$sizeClass = 'person-img-md';
-				break;
-		}
+    public function getImage($id, $size = 'md')
+    {
+        $id = (int) $id;
 
-		if($this->hasImageFile($id)){
-			$retstr .= '<img src="api.php?iid=base_intranet_personenbild&amp;id=' . $id . '" class="img-responsive hvr-glow ' .$sizeClass. '" alt=""/>';
-		} else {
-			$retstr .= '<div class="img-responsive hvr-glow person-img-dummy ' .$sizeClass. '"></div>';
-		}
+        $retstr = '<a href="index.php?pid=intranet_person&amp;id=' .$id. '" class="person-profile-link">';
+        $sizeClass = '';
 
-		$retstr .= '</a>';
+        switch ($size) {
+            case 'xs':
+                $sizeClass = 'person-img-xs';
+                break;
+            case 'lg':
+                $sizeClass = 'person-img-lg';
+                break;
+            default:
+                $sizeClass = 'person-img-md';
+                break;
+        }
 
-		return $retstr;
-	}
+        if ($this->hasImageFile($id)) {
+            $retstr .= '<img src="api.php?iid=base_intranet_personenbild&amp;id=' . $id . '" class="img-fluid hvr-glow ' .$sizeClass. '" alt=""/>';
+        } else {
+            $retstr .= '<div class="img-fluid hvr-glow person-img-dummy ' .$sizeClass. '"></div>';
+        }
 
-	function hasImageFile($id){
-		return is_numeric($id) && is_file($this->getImageFilePath($id));
-	}
+        $retstr .= '</a>';
 
-	function getImageFilePath($id){
-		global $libFilesystem;
+        return $retstr;
+    }
 
-		return $libFilesystem->getAbsolutePath('custom/intranet/mitgliederfotos/' .$id. '.jpg');
-	}
+    public function hasImageFile($id)
+    {
+        return is_numeric($id) && is_file($this->getImageFilePath($id));
+    }
 
-	function setIntranetActivity($id, $punkte, $enablelimit){
-		global $libDb;
+    public function getImageFilePath($id)
+    {
+        global $libFilesystem;
 
-		if($enablelimit){
-			$stmt = $libDb->prepare("SELECT COUNT(*) AS number FROM sys_log_intranet WHERE mitglied=:mitglied AND DATE_SUB(CURDATE(),INTERVAL 0 DAY) <= datum");
-			$stmt->bindValue(':mitglied', $id, PDO::PARAM_INT);
-			$stmt->execute();
-			$stmt->bindColumn('number', $punkteadditionheute);
-			$stmt->fetch();
+        return $libFilesystem->getAbsolutePath('custom/intranet/mitgliederfotos/' .$id. '.jpg');
+    }
 
-			if($punkteadditionheute < 2){
-				$stmt = $libDb->prepare("INSERT INTO sys_log_intranet (mitglied, datum, punkte) VALUES (:mitglied, NOW(), :punkte)");
-				$stmt->bindValue(':mitglied', $id, PDO::PARAM_INT);
-				$stmt->bindValue(':punkte', $punkte, PDO::PARAM_INT);
-				$stmt->execute();
-			}
-		} else {
-			$stmt = $libDb->prepare("INSERT INTO sys_log_intranet (mitglied, datum, punkte) VALUES (:mitglied, NOW(), :punkte)");
-			$stmt->bindValue(':mitglied', $id, PDO::PARAM_INT);
-			$stmt->bindValue(':punkte', $punkte, PDO::PARAM_INT);
-			$stmt->execute();
-		}
-	}
+    public function setIntranetActivity($id, $points, $enablelimit)
+    {
+        global $libDb;
 
-	function getChargenString($id){
-		global $libDb, $libTime, $libConfig;
+        if ($enablelimit) {
+            $stmt = $libDb->prepare("SELECT COUNT(*) AS number FROM sys_log_intranet WHERE mitglied=:mitglied AND DATE_SUB(CURDATE(),INTERVAL 0 DAY) <= datum");
+            $stmt->bindValue(':mitglied', $id, PDO::PARAM_INT);
+            $stmt->execute();
+            $stmt->bindColumn('number', $pointsAddedToday);
+            $stmt->fetch();
 
-		/*
-		* aktuelle Chargen, ist das Mitglied aktuell in einem Vorstand?
-		*/
-		$stmt = $libDb->prepare("
+            if ($pointsAddedToday < 2) {
+                $stmt = $libDb->prepare("INSERT INTO sys_log_intranet (mitglied, datum, punkte) VALUES (:mitglied, NOW(), :punkte)");
+                $stmt->bindValue(':mitglied', $id, PDO::PARAM_INT);
+                $stmt->bindValue(':punkte', $points, PDO::PARAM_INT);
+                $stmt->execute();
+            }
+        } else {
+            $stmt = $libDb->prepare("INSERT INTO sys_log_intranet (mitglied, datum, punkte) VALUES (:mitglied, NOW(), :punkte)");
+            $stmt->bindValue(':mitglied', $id, PDO::PARAM_INT);
+            $stmt->bindValue(':punkte', $points, PDO::PARAM_INT);
+            $stmt->execute();
+        }
+    }
+
+    public function getChargenString($id)
+    {
+        global $libDb, $libTime, $libConfig;
+
+        /*
+        * current offices; is the member currently on a board?
+        */
+        $stmt = $libDb->prepare("
 			SELECT *
 			FROM base_semester
 			WHERE ((base_semester.senior = :senior AND sen_dech = 0)
@@ -241,96 +266,122 @@ class LibPerson{
 			OR base_semester.vopxxx = :vopxxx
 			OR base_semester.vopxxxx = :vopxxxx)
 			AND semester = :semester");
-		$stmt->bindValue(':senior', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':jubelsenior', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':consenior', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':fuchsmajor', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':fuchsmajor2', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':scriptor', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':quaestor', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':ahv_senior', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':ahv_consenior', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':ahv_keilbeauftragter', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':ahv_scriptor', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':ahv_quaestor', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':hv_vorsitzender', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':hv_kassierer', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':archivar', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':redaktionswart', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':vop', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':vvop', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':vopxx', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':vopxxx', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':vopxxxx', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':semester', $libTime->getSemesterName());
-		$stmt->execute();
+        $stmt->bindValue(':senior', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':jubelsenior', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':consenior', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':fuchsmajor', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':fuchsmajor2', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':scriptor', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':quaestor', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':ahv_senior', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':ahv_consenior', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':ahv_keilbeauftragter', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':ahv_scriptor', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':ahv_quaestor', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':hv_vorsitzender', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':hv_kassierer', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':archivar', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':redaktionswart', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':vop', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':vvop', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':vopxx', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':vopxxx', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':vopxxxx', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':semester', $libTime->getSemesterName());
+        $stmt->execute();
 
-		$chargenAktuell = array();
+        $currentChargen = [];
 
-		while($row = $stmt->fetch(PDO::FETCH_ASSOC)){
-			if($row['senior'] == $id)
-				$chargenAktuell[] = $libConfig->chargenSenior;
-			if($row['jubelsenior'] == $id)
-				$chargenAktuell[] = $libConfig->chargenJubelSenior;
-			if($row['consenior'] == $id)
-				$chargenAktuell[] = $libConfig->chargenConsenior;
-			if($row['fuchsmajor'] == $id)
-				$chargenAktuell[] = $libConfig->chargenFuchsmajor;
-			if($row['fuchsmajor2'] == $id)
-				$chargenAktuell[] = $libConfig->chargenFuchsmajor2;
-			if($row['scriptor'] == $id)
-				$chargenAktuell[] = $libConfig->chargenScriptor;
-			if($row['quaestor'] == $id)
-				$chargenAktuell[] = $libConfig->chargenQuaestor;
-			if($row['ahv_senior'] == $id)
-				$chargenAktuell[] = $libConfig->chargenAHVSenior;
-			if($row['ahv_consenior'] == $id)
-				$chargenAktuell[] = $libConfig->chargenAHVConsenior;
-			if($row['ahv_keilbeauftragter'] == $id)
-				$chargenAktuell[] = $libConfig->chargenAHVKeilbeauftragter;
-			if($row['ahv_scriptor'] == $id)
-				$chargenAktuell[] = $libConfig->chargenAHVScriptor;
-			if($row['ahv_quaestor'] == $id)
-				$chargenAktuell[] = $libConfig->chargenAHVQuaestor;
-			if($row['hv_vorsitzender'] == $id)
-				$chargenAktuell[] = $libConfig->chargenHVVorsitzender;
-			if($row['hv_kassierer'] == $id)
-				$chargenAktuell[] = $libConfig->chargenHVKassierer;
-			if($row['archivar'] == $id)
-				$chargenAktuell[] = $libConfig->chargenArchivar;
-			if($row['redaktionswart'] == $id)
-				$chargenAktuell[] = $libConfig->chargenRedaktionswart;
-			if($row['vop'] == $id)
-				if(isset($libConfig->chargenVOP))
-					$chargenAktuell[] = $libConfig->chargenVOP;
-			if($row['vvop'] == $id)
-				if(isset($libConfig->chargenVVOP))
-					$chargenAktuell[] = $libConfig->chargenVVOP;
-			if($row['vopxx'] == $id)
-				if(isset($libConfig->chargenVOPxx))
-					$chargenAktuell[] = $libConfig->chargenVOPxx;
-			if($row['vopxxx'] == $id)
-				if(isset($libConfig->chargenVOPxxx))
-					$chargenAktuell[] = $libConfig->chargenVOPxxx;
-			if($row['vopxxxx'] == $id)
-				if(isset($libConfig->chargenVOPxxxx))
-					$chargenAktuell[] = $libConfig->chargenVOPxxxx;
-		}
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            if ($row['senior'] == $id) {
+                $currentChargen[] = $libConfig->chargenSenior;
+            }
+            if ($row['jubelsenior'] == $id) {
+                $currentChargen[] = $libConfig->chargenJubelSenior;
+            }
+            if ($row['consenior'] == $id) {
+                $currentChargen[] = $libConfig->chargenConsenior;
+            }
+            if ($row['fuchsmajor'] == $id) {
+                $currentChargen[] = $libConfig->chargenFuchsmajor;
+            }
+            if ($row['fuchsmajor2'] == $id) {
+                $currentChargen[] = $libConfig->chargenFuchsmajor2;
+            }
+            if ($row['scriptor'] == $id) {
+                $currentChargen[] = $libConfig->chargenScriptor;
+            }
+            if ($row['quaestor'] == $id) {
+                $currentChargen[] = $libConfig->chargenQuaestor;
+            }
+            if ($row['ahv_senior'] == $id) {
+                $currentChargen[] = $libConfig->chargenAHVSenior;
+            }
+            if ($row['ahv_consenior'] == $id) {
+                $currentChargen[] = $libConfig->chargenAHVConsenior;
+            }
+            if ($row['ahv_keilbeauftragter'] == $id) {
+                $currentChargen[] = $libConfig->chargenAHVKeilbeauftragter;
+            }
+            if ($row['ahv_scriptor'] == $id) {
+                $currentChargen[] = $libConfig->chargenAHVScriptor;
+            }
+            if ($row['ahv_quaestor'] == $id) {
+                $currentChargen[] = $libConfig->chargenAHVQuaestor;
+            }
+            if ($row['hv_vorsitzender'] == $id) {
+                $currentChargen[] = $libConfig->chargenHVVorsitzender;
+            }
+            if ($row['hv_kassierer'] == $id) {
+                $currentChargen[] = $libConfig->chargenHVKassierer;
+            }
+            if ($row['archivar'] == $id) {
+                $currentChargen[] = $libConfig->chargenArchivar;
+            }
+            if ($row['redaktionswart'] == $id) {
+                $currentChargen[] = $libConfig->chargenRedaktionswart;
+            }
+            if ($row['vop'] == $id) {
+                if (isset($libConfig->chargenVOP)) {
+                    $currentChargen[] = $libConfig->chargenVOP;
+                }
+            }
+            if ($row['vvop'] == $id) {
+                if (isset($libConfig->chargenVVOP)) {
+                    $currentChargen[] = $libConfig->chargenVVOP;
+                }
+            }
+            if ($row['vopxx'] == $id) {
+                if (isset($libConfig->chargenVOPxx)) {
+                    $currentChargen[] = $libConfig->chargenVOPxx;
+                }
+            }
+            if ($row['vopxxx'] == $id) {
+                if (isset($libConfig->chargenVOPxxx)) {
+                    $currentChargen[] = $libConfig->chargenVOPxxx;
+                }
+            }
+            if ($row['vopxxxx'] == $id) {
+                if (isset($libConfig->chargenVOPxxxx)) {
+                    $currentChargen[] = $libConfig->chargenVOPxxxx;
+                }
+            }
+        }
 
-		$chargenAktuellNeu = array();
+        $newCurrentChargen = [];
 
-		foreach($chargenAktuell as $value){
-			if($value){
-				array_push($chargenAktuellNeu, $value);
-			}
-		}
+        foreach ($currentChargen as $value) {
+            if ($value) {
+                array_push($newCurrentChargen, $value);
+            }
+        }
 
-		$chargenAktuellStr = implode(', ', $chargenAktuellNeu);
+        $currentChargenString = implode(', ', $newCurrentChargen);
 
-		/*
-		* dechargierte Chargen
-		*/
-		$stmt = $libDb->prepare("
+        /*
+        * offices no longer held
+        */
+        $stmt = $libDb->prepare("
 			SELECT *
 			FROM base_semester
 			WHERE (base_semester.senior = :senior AND sen_dech = 1)
@@ -356,207 +407,249 @@ class LibPerson{
 			OR base_semester.vopxxxx = :vopxxxx
 			AND semester != :semester
 			ORDER BY SUBSTRING(semester,3)");
-		$stmt->bindValue(':senior', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':jubelsenior', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':consenior', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':fuchsmajor', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':fuchsmajor2', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':scriptor', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':quaestor', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':ahv_senior', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':ahv_consenior', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':ahv_keilbeauftragter', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':ahv_scriptor', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':ahv_quaestor', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':hv_vorsitzender', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':hv_kassierer', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':archivar', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':redaktionswart', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':vop', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':vvop', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':vopxx', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':vopxxx', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':vopxxxx', $id, PDO::PARAM_INT);
-		$stmt->bindValue(':semester', $libTime->getSemesterName());
-		$stmt->execute();
+        $stmt->bindValue(':senior', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':jubelsenior', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':consenior', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':fuchsmajor', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':fuchsmajor2', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':scriptor', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':quaestor', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':ahv_senior', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':ahv_consenior', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':ahv_keilbeauftragter', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':ahv_scriptor', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':ahv_quaestor', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':hv_vorsitzender', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':hv_kassierer', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':archivar', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':redaktionswart', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':vop', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':vvop', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':vopxx', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':vopxxx', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':vopxxxx', $id, PDO::PARAM_INT);
+        $stmt->bindValue(':semester', $libTime->getSemesterName());
+        $stmt->execute();
 
-		$chargen = array();
+        $chargen = [];
 
-		while($row = $stmt->fetch(PDO::FETCH_ASSOC)){
-			if($row['senior'] == $id)
-				$chargen[] = $libConfig->chargenSenior;
-			if($row['jubelsenior'] == $id)
-				$chargen[] = $libConfig->chargenJubelSenior;
-			if($row['consenior'] == $id)
-				$chargen[] = $libConfig->chargenConsenior;
-			if($row['fuchsmajor'] == $id)
-				$chargen[] = $libConfig->chargenFuchsmajor;
-			if($row['fuchsmajor2'] == $id)
-				$chargen[] = $libConfig->chargenFuchsmajor2;
-			if($row['scriptor'] == $id)
-				$chargen[] = $libConfig->chargenScriptor;
-			if($row['quaestor'] == $id)
-				$chargen[] = $libConfig->chargenQuaestor;
-			if($row['ahv_senior'] == $id)
-				if(!in_array($libConfig->chargenAHVSenior, $chargen) &&
-					!in_array($libConfig->chargenAHVSenior, $chargenAktuell))
-					$chargen[] = $libConfig->chargenAHVSenior;
-			if($row['ahv_consenior'] == $id)
-				if(!in_array($libConfig->chargenAHVConsenior, $chargen) &&
-					!in_array($libConfig->chargenAHVConsenior, $chargenAktuell))
-					$chargen[] = $libConfig->chargenAHVConsenior;
-			if($row['ahv_keilbeauftragter'] == $id)
-				if(!in_array($libConfig->chargenAHVKeilbeauftragter, $chargen) &&
-					!in_array($libConfig->chargenAHVKeilbeauftragter, $chargenAktuell))
-					$chargen[] = $libConfig->chargenAHVKeilbeauftragter;
-			if($row['ahv_scriptor'] == $id)
-				if(!in_array($libConfig->chargenAHVScriptor, $chargen) &&
-					!in_array($libConfig->chargenAHVScriptor, $chargenAktuell))
-					$chargen[] = $libConfig->chargenAHVScriptor;
-			if($row['ahv_quaestor'] == $id)
-				if(!in_array($libConfig->chargenAHVQuaestor, $chargen) &&
-					!in_array($libConfig->chargenAHVQuaestor, $chargenAktuell))
-					$chargen[] = $libConfig->chargenAHVQuaestor;
-			if($row['hv_vorsitzender'] == $id)
-				if(!in_array($libConfig->chargenHVVorsitzender, $chargen) &&
-					!in_array($libConfig->chargenHVVorsitzender, $chargenAktuell))
-					$chargen[] = $libConfig->chargenHVVorsitzender;
-			if($row['hv_kassierer'] == $id)
-				if(!in_array($libConfig->chargenHVKassierer, $chargen) &&
-					!in_array($libConfig->chargenHVKassierer, $chargenAktuell))
-					$chargen[] = $libConfig->chargenHVKassierer;
-			if($row['archivar'] == $id)
-				if(!in_array($libConfig->chargenArchivar, $chargen) &&
-					!in_array($libConfig->chargenArchivar, $chargenAktuell))
-					$chargen[] = $libConfig->chargenArchivar;
-			if($row['redaktionswart'] == $id)
-				if(!in_array($libConfig->chargenRedaktionswart, $chargen) &&
-					!in_array($libConfig->chargenRedaktionswart, $chargenAktuell))
-					$chargen[] = $libConfig->chargenRedaktionswart;
-			if($row['vop'] == $id)
-				if(!in_array($libConfig->chargenVOP, $chargen) &&
-					!in_array($libConfig->chargenVOP, $chargenAktuell))
-						if(isset($libConfig->chargenVOP))
-							$chargen[] = $libConfig->chargenVOP;
-			if($row['vvop'] == $id)
-				if(!in_array($libConfig->chargenVVOP, $chargen) &&
-					!in_array($libConfig->chargenVVOP, $chargenAktuell))
-						if(isset($libConfig->chargenVVOP))
-							$chargen[] = $libConfig->chargenVVOP;
-			if($row['vopxx'] == $id)
-				if(!in_array($libConfig->chargenVOPxx, $chargen) &&
-					!in_array($libConfig->chargenVOPxx, $chargenAktuell))
-						if(isset($libConfig->chargenVOPxx))
-							$chargen[] = $libConfig->chargenVOPxx;
-			if($row['vopxxx'] == $id)
-				if(!in_array($libConfig->chargenVOPxxx, $chargen) &&
-					!in_array($libConfig->chargenVOPxxx, $chargenAktuell))
-						if(isset($libConfig->chargenVOPxxx))
-							$chargen[] = $libConfig->chargenVOPxxx;
-			if($row['vopxxxx'] == $id)
-				if(!in_array($libConfig->chargenVOPxxxx, $chargen) &&
-					!in_array($libConfig->chargenVOPxxxx, $chargenAktuell))
-						if(isset($libConfig->chargenVOPxxxx))
-							$chargen[] = $libConfig->chargenVOPxxxx;
-		}
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            if ($row['senior'] == $id) {
+                $chargen[] = $libConfig->chargenSenior;
+            }
+            if ($row['jubelsenior'] == $id) {
+                $chargen[] = $libConfig->chargenJubelSenior;
+            }
+            if ($row['consenior'] == $id) {
+                $chargen[] = $libConfig->chargenConsenior;
+            }
+            if ($row['fuchsmajor'] == $id) {
+                $chargen[] = $libConfig->chargenFuchsmajor;
+            }
+            if ($row['fuchsmajor2'] == $id) {
+                $chargen[] = $libConfig->chargenFuchsmajor2;
+            }
+            if ($row['scriptor'] == $id) {
+                $chargen[] = $libConfig->chargenScriptor;
+            }
+            if ($row['quaestor'] == $id) {
+                $chargen[] = $libConfig->chargenQuaestor;
+            }
+            if ($row['ahv_senior'] == $id) {
+                if (!in_array($libConfig->chargenAHVSenior, $chargen) &&
+                    !in_array($libConfig->chargenAHVSenior, $currentChargen)) {
+                    $chargen[] = $libConfig->chargenAHVSenior;
+                }
+            }
+            if ($row['ahv_consenior'] == $id) {
+                if (!in_array($libConfig->chargenAHVConsenior, $chargen) &&
+                    !in_array($libConfig->chargenAHVConsenior, $currentChargen)) {
+                    $chargen[] = $libConfig->chargenAHVConsenior;
+                }
+            }
+            if ($row['ahv_keilbeauftragter'] == $id) {
+                if (!in_array($libConfig->chargenAHVKeilbeauftragter, $chargen) &&
+                    !in_array($libConfig->chargenAHVKeilbeauftragter, $currentChargen)) {
+                    $chargen[] = $libConfig->chargenAHVKeilbeauftragter;
+                }
+            }
+            if ($row['ahv_scriptor'] == $id) {
+                if (!in_array($libConfig->chargenAHVScriptor, $chargen) &&
+                    !in_array($libConfig->chargenAHVScriptor, $currentChargen)) {
+                    $chargen[] = $libConfig->chargenAHVScriptor;
+                }
+            }
+            if ($row['ahv_quaestor'] == $id) {
+                if (!in_array($libConfig->chargenAHVQuaestor, $chargen) &&
+                    !in_array($libConfig->chargenAHVQuaestor, $currentChargen)) {
+                    $chargen[] = $libConfig->chargenAHVQuaestor;
+                }
+            }
+            if ($row['hv_vorsitzender'] == $id) {
+                if (!in_array($libConfig->chargenHVVorsitzender, $chargen) &&
+                    !in_array($libConfig->chargenHVVorsitzender, $currentChargen)) {
+                    $chargen[] = $libConfig->chargenHVVorsitzender;
+                }
+            }
+            if ($row['hv_kassierer'] == $id) {
+                if (!in_array($libConfig->chargenHVKassierer, $chargen) &&
+                    !in_array($libConfig->chargenHVKassierer, $currentChargen)) {
+                    $chargen[] = $libConfig->chargenHVKassierer;
+                }
+            }
+            if ($row['archivar'] == $id) {
+                if (!in_array($libConfig->chargenArchivar, $chargen) &&
+                    !in_array($libConfig->chargenArchivar, $currentChargen)) {
+                    $chargen[] = $libConfig->chargenArchivar;
+                }
+            }
+            if ($row['redaktionswart'] == $id) {
+                if (!in_array($libConfig->chargenRedaktionswart, $chargen) &&
+                    !in_array($libConfig->chargenRedaktionswart, $currentChargen)) {
+                    $chargen[] = $libConfig->chargenRedaktionswart;
+                }
+            }
+            if ($row['vop'] == $id) {
+                if (!in_array($libConfig->chargenVOP, $chargen) &&
+                    !in_array($libConfig->chargenVOP, $currentChargen)) {
+                    if (isset($libConfig->chargenVOP)) {
+                        $chargen[] = $libConfig->chargenVOP;
+                    }
+                }
+            }
+            if ($row['vvop'] == $id) {
+                if (!in_array($libConfig->chargenVVOP, $chargen) &&
+                    !in_array($libConfig->chargenVVOP, $currentChargen)) {
+                    if (isset($libConfig->chargenVVOP)) {
+                        $chargen[] = $libConfig->chargenVVOP;
+                    }
+                }
+            }
+            if ($row['vopxx'] == $id) {
+                if (!in_array($libConfig->chargenVOPxx, $chargen) &&
+                    !in_array($libConfig->chargenVOPxx, $currentChargen)) {
+                    if (isset($libConfig->chargenVOPxx)) {
+                        $chargen[] = $libConfig->chargenVOPxx;
+                    }
+                }
+            }
+            if ($row['vopxxx'] == $id) {
+                if (!in_array($libConfig->chargenVOPxxx, $chargen) &&
+                    !in_array($libConfig->chargenVOPxxx, $currentChargen)) {
+                    if (isset($libConfig->chargenVOPxxx)) {
+                        $chargen[] = $libConfig->chargenVOPxxx;
+                    }
+                }
+            }
+            if ($row['vopxxxx'] == $id) {
+                if (!in_array($libConfig->chargenVOPxxxx, $chargen) &&
+                    !in_array($libConfig->chargenVOPxxxx, $currentChargen)) {
+                    if (isset($libConfig->chargenVOPxxxx)) {
+                        $chargen[] = $libConfig->chargenVOPxxxx;
+                    }
+                }
+            }
+        }
 
-		$chargenNeu = array();
+        $newChargen = [];
 
-		foreach($chargen as $value){
-			if($value){
-				array_push($chargenNeu, $value);
-			}
-		}
+        foreach ($chargen as $value) {
+            if ($value) {
+                array_push($newChargen, $value);
+            }
+        }
 
-		$chargenDechStr = implode(', ', $chargenNeu);
+        $dechargedChargenString = implode(', ', $newChargen);
 
-		/*
-		* result string
-		*/
-		$retstr = $chargenAktuellStr;
+        /*
+        * result string
+        */
+        $retstr = $currentChargenString;
 
-		if($chargenDechStr != ''){
-			$retstr .= ' ('.$chargenDechStr.')';
-		}
+        if ($dechargedChargenString != '') {
+            $retstr .= ' ('.$dechargedChargenString.')';
+        }
 
-		return $retstr;
-	}
+        return $retstr;
+    }
 
-	function getVereineString($id){
-		global $libDb;
+    public function getAssociationsString($id)
+    {
+        global $libDb, $libString;
 
-		$stmt = $libDb->prepare("SELECT base_verein.id, base_verein.kuerzel, base_verein_mitgliedschaft.ehrenmitglied
+        $stmt = $libDb->prepare("SELECT base_verein.id, base_verein.kuerzel, base_verein_mitgliedschaft.ehrenmitglied
 			FROM base_verein, base_verein_mitgliedschaft
 			WHERE base_verein_mitgliedschaft.mitglied = :mitglied
 			AND base_verein_mitgliedschaft.verein = base_verein.id");
-		$stmt->bindValue(':mitglied', $id, PDO::PARAM_INT);
-		$stmt->execute();
+        $stmt->bindValue(':mitglied', $id, PDO::PARAM_INT);
+        $stmt->execute();
 
-		$vereinestr = '';
+        $associationsString = '';
 
-		while($row = $stmt->fetch(PDO::FETCH_ASSOC)){
-			if($vereinestr != ''){
-				$vereinestr .= ', ';
-			}
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            if ($associationsString != '') {
+                $associationsString .= ', ';
+            }
 
-			$ehrenstring = '';
+            $honoraryString = '';
 
-			if($row['ehrenmitglied'] == 1){
-				$ehrenstring = 'E.d. ';
-			}
+            if ($row['ehrenmitglied'] == 1) {
+                $honoraryString = 'E.d. ';
+            }
 
-			$vereinestr .= '<a href="index.php?pid=verein&amp;id=' .$row['id']. '">' .$ehrenstring.$row['kuerzel']. '</a>';
-			unset($ehrenstring);
-		}
+            $associationsString .= '<a href="index.php?pid=verein&amp;id=' .(int) $row['id']. '">' .$honoraryString.$libString->protectXSS($row['kuerzel']). '</a>';
+            unset($honoraryString);
+        }
 
-		if($vereinestr != ''){
-			return '('.$vereinestr.')';
-		} else {
-			return '';
-		}
-	}
+        if ($associationsString != '') {
+            return '('.$associationsString.')';
+        } else {
+            return '';
+        }
+    }
 
-	function getPersonSchema($row){
-		global $libTime;
+    public function getPersonSchema($row)
+    {
+        global $libTime;
 
-		$result = array();
+        $result = [];
 
-		$result['@context'] = 'http://schema.org';
-		$result['@type'] = 'Person';
-		$result['honorificPrefix'] = $row['titel'];
-		$result['givenName'] = $row['vorname'];
-		$result['familyName'] = $row['name'];
-		$result['jobTitle'] = $row['beruf'];
-		$result['email'] = $row['email'];
-		$result['telephone'] = $row['mobiltelefon'];
-		$result['url'] = $row['webseite'];
+        $result['@context'] = 'http://schema.org';
+        $result['@type'] = 'Person';
+        $result['honorificPrefix'] = $row['titel'];
+        $result['givenName'] = $row['vorname'];
+        $result['familyName'] = $row['name'];
+        $result['jobTitle'] = $row['beruf'];
+        $result['email'] = $row['email'];
+        $result['telephone'] = $row['mobiltelefon'];
+        $result['url'] = $row['webseite'];
 
-		if($row['datum_geburtstag'] != ''){
-			$result['birthDate'] = $libTime->formatDateString($row['datum_geburtstag']);
-		}
+        if ($row['datum_geburtstag'] != '') {
+            $result['birthDate'] = $libTime->formatDateString($row['datum_geburtstag']);
+        }
 
-		if($row['tod_datum'] != ''){
-			$result['deathDate'] = $libTime->formatDateString($row['tod_datum']);
-		}
+        if ($row['tod_datum'] != '') {
+            $result['deathDate'] = $libTime->formatDateString($row['tod_datum']);
+        }
 
-		$address1 = array();
-		$address1['@type'] = 'PostalAddress';
-		$address1['streetAddress'] = $row['strasse1'];
-		$address1['addressLocality'] = $row['ort1'];
-		$address1['postalCode'] = $row['plz1'];
-		$address1['addressCountry'] = $row['land1'];
-		$address1['telephone'] = $row['telefon1'];
+        $address1 = [];
+        $address1['@type'] = 'PostalAddress';
+        $address1['streetAddress'] = $row['strasse1'];
+        $address1['addressLocality'] = $row['ort1'];
+        $address1['postalCode'] = $row['plz1'];
+        $address1['addressCountry'] = $row['land1'];
+        $address1['telephone'] = $row['telefon1'];
 
-		$address2 = array();
-		$address2['@type'] = 'PostalAddress';
-		$address2['streetAddress'] = $row['strasse2'];
-		$address2['addressLocality'] = $row['ort2'];
-		$address2['postalCode'] = $row['plz2'];
-		$address2['addressCountry'] = $row['land2'];
-		$address2['telephone'] = $row['telefon2'];
+        $address2 = [];
+        $address2['@type'] = 'PostalAddress';
+        $address2['streetAddress'] = $row['strasse2'];
+        $address2['addressLocality'] = $row['ort2'];
+        $address2['postalCode'] = $row['plz2'];
+        $address2['addressCountry'] = $row['land2'];
+        $address2['telephone'] = $row['telefon2'];
 
-		$result['contactPoint'] = array($address1, $address2);
+        $result['contactPoint'] = [$address1, $address2];
 
-		return $result;
-	}
+        return $result;
+    }
 }

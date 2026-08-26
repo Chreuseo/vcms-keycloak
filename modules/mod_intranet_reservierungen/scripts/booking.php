@@ -1,4 +1,5 @@
 <?php
+
 /*
 This file is part of VCMS.
 
@@ -16,8 +17,9 @@ You should have received a copy of the GNU General Public License
 along with VCMS. If not, see <http://www.gnu.org/licenses/>.
 */
 
-if(!is_object($libGlobal) || !$libAuth->isLoggedin())
-	exit();
+if (!is_object($libGlobal) || !$libAuth->isLoggedin()) {
+    exit();
+}
 
 
 echo '<h1>Reservierung durchführen</h1>';
@@ -25,12 +27,12 @@ echo '<h1>Reservierung durchführen</h1>';
 echo $libString->getErrorBoxText();
 echo $libString->getNotificationBoxText();
 
-echo '<div class="panel panel-default">';
-echo '<div class="panel-body">';
-echo '<form action="index.php?pid=intranet_reservations" method="post" class="form-horizontal">';
+echo '<div class="card">';
+echo '<div class="card-body">';
+echo '<form action="index.php?pid=intranet_reservations" method="post">';
 echo '<fieldset>';
 
-$libForm->printTextInput('datum', 'Datum', date("Y-m-d"), 'date');
+$libForm->printDateInput('datum', 'Datum', date("Y-m-d"), false, true, [], date("Y-m-d"));
 $libForm->printTextarea('beschreibung', 'Beschreibung', 'Bitte Räumlichkeit, Tageszeit und Art der Nutzung angeben. Bei einem Filmabend Filmtitel nennen.');
 $libForm->printSubmitButton('<i class="fa fa-pencil-square-o" aria-hidden="true"></i> Reservierung speichern');
 

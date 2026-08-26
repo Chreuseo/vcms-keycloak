@@ -1,4 +1,5 @@
 <?php
+
 /*
 This file is part of VCMS.
 
@@ -16,8 +17,9 @@ You should have received a copy of the GNU General Public License
 along with VCMS. If not, see <http://www.gnu.org/licenses/>.
 */
 
-if(!is_object($libGlobal))
-  exit();
+if (!is_object($libGlobal)) {
+    exit();
+}
 
 
 echo 'Erstelle Tabelle base_gruppe<br />';
@@ -173,7 +175,7 @@ $libDb->query($sql);
 echo 'Erstelle Tabelle base_veranstaltung<br />';
 $sql = "CREATE TABLE base_veranstaltung (
   id int(11) NOT NULL auto_increment,
-  datum datetime NOT NULL default '0000-00-00 00:00:00',
+  datum datetime,
   datum_ende datetime,
   titel varchar(255),
   spruch varchar(255),
@@ -290,7 +292,7 @@ $sql = "CREATE TABLE sys_log_intranet (
   id int(11) NOT NULL auto_increment,
   mitglied int(11) NOT NULL default '0',
   aktion smallint(4),
-  datum datetime NOT NULL default '0000-00-00 00:00:00',
+  datum datetime,
   punkte smallint(4) NOT NULL default '0',
   ipadresse varchar(255),
   PRIMARY KEY (id),
@@ -324,6 +326,11 @@ $sql = "INSERT IGNORE INTO base_status (bezeichnung, beschreibung) VALUES ('A-Ph
 ('Inaktiv', 'inaktives Mitglied'),
 ('Inaktiv ex loco', 'Inaktives Mitglied an einem anderen Ort'),
 ('VG', 'Verkehrsgast');";
+$libDb->query($sql);
+
+
+// Fresh installations already store unencoded data; the migration in LibCronjobs is not needed
+$sql = "INSERT IGNORE INTO sys_genericstorage (moduleid, array_name, position, value) VALUES ('base_core', 'legacy_entities_decoded', 0, '1');";
 $libDb->query($sql);
 
 

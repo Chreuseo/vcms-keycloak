@@ -1,4 +1,5 @@
 <?php
+
 /*
 This file is part of VCMS.
 
@@ -16,34 +17,35 @@ You should have received a copy of the GNU General Public License
 along with VCMS. If not, see <http://www.gnu.org/licenses/>.
 */
 
-if(!is_object($libGlobal) || !$libAuth->isLoggedin())
-	exit();
+if (!is_object($libGlobal) || !$libAuth->isLoggedin()) {
+    exit();
+}
 
 
 /*
 * actions
 */
 
-if(isset($_REQUEST['veranstaltungenchangeanmeldenstate']) && $_REQUEST['veranstaltungenchangeanmeldenstate'] != '' && isset($_REQUEST['eventid']) && $_REQUEST['eventid'] != ''){
-	$stmt = $libDb->prepare('SELECT * FROM base_veranstaltung WHERE id=:id');
-	$stmt->bindValue(':id', $_REQUEST['eventid'], PDO::PARAM_INT);
-	$stmt->execute();
-	$row = $stmt->fetch(PDO::FETCH_ASSOC);
+if (isset($_POST['eventsChangeRegistrationState']) && $_POST['eventsChangeRegistrationState'] != '' && isset($_POST['eventid']) && $_POST['eventid'] != '') {
+    $stmt = $libDb->prepare('SELECT * FROM base_veranstaltung WHERE id=:id');
+    $stmt->bindValue(':id', $_POST['eventid'], PDO::PARAM_INT);
+    $stmt->execute();
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-	//event in future?
-	if(date('Y-m-d H:i:s') < $row['datum']){
-		if($_REQUEST['veranstaltungenchangeanmeldenstate'] == 'anmelden'){
-			$stmt = $libDb->prepare('INSERT IGNORE INTO base_veranstaltung_teilnahme (veranstaltung, person) VALUES (:veranstaltung, :person)');
-			$stmt->bindValue(':veranstaltung', $_REQUEST['eventid'], PDO::PARAM_INT);
-			$stmt->bindValue(':person', $libAuth->getId(), PDO::PARAM_INT);
-			$stmt->execute();
-		} else {
-			$stmt = $libDb->prepare('DELETE FROM base_veranstaltung_teilnahme WHERE veranstaltung=:veranstaltung AND person=:person');
-			$stmt->bindValue(':veranstaltung', $_REQUEST['eventid'], PDO::PARAM_INT);
-			$stmt->bindValue(':person', $libAuth->getId(), PDO::PARAM_INT);
-			$stmt->execute();
-		}
-	}
+    //event in future?
+    if (date('Y-m-d H:i:s') < $row['datum']) {
+        if ($_POST['eventsChangeRegistrationState'] == 'register') {
+            $stmt = $libDb->prepare('INSERT IGNORE INTO base_veranstaltung_teilnahme (veranstaltung, person) VALUES (:veranstaltung, :person)');
+            $stmt->bindValue(':veranstaltung', $_POST['eventid'], PDO::PARAM_INT);
+            $stmt->bindValue(':person', $libAuth->getId(), PDO::PARAM_INT);
+            $stmt->execute();
+        } else {
+            $stmt = $libDb->prepare('DELETE FROM base_veranstaltung_teilnahme WHERE veranstaltung=:veranstaltung AND person=:person');
+            $stmt->bindValue(':veranstaltung', $_POST['eventid'], PDO::PARAM_INT);
+            $stmt->bindValue(':person', $libAuth->getId(), PDO::PARAM_INT);
+            $stmt->execute();
+        }
+    }
 }
 
 
@@ -51,82 +53,86 @@ if(isset($_REQUEST['veranstaltungenchangeanmeldenstate']) && $_REQUEST['veransta
 * output
 */
 
-class LibEventTimelineEvent extends \vcms\timeline\LibTimelineEvent{
-	function getBadgeClass(){
-		return 'event';
-	}
+class LibEventTimelineEvent extends \vcms\timeline\LibTimelineEvent
+{
+    public function getBadgeClass()
+    {
+        return 'event';
+    }
 
-	function getBadgeIcon(){
-		return '<i class="fa fa-calendar" aria-hidden="true"></i>';
-	}
+    public function getBadgeIcon()
+    {
+        return '<i class="fa fa-calendar" aria-hidden="true"></i>';
+    }
 }
 
 
 $stmt = $libDb->prepare('SELECT id, datum, titel FROM base_veranstaltung WHERE DATEDIFF(datum, NOW()) <= :zeitraumlimit AND DATEDIFF(datum, :semesterstart) >= 0 AND DATEDIFF(datum, :semesterende) <= 0 ORDER BY datum');
-$stmt->bindValue(':semesterstart', $zeitraum[0]);
-$stmt->bindValue(':semesterende', $zeitraum[1]);
-$stmt->bindValue(':zeitraumlimit', $zeitraumLimit, PDO::PARAM_INT);
+$stmt->bindValue(':semesterstart', $period[0]);
+$stmt->bindValue(':semesterende', $period[1]);
+$stmt->bindValue(':zeitraumlimit', $periodLimit, PDO::PARAM_INT);
 $stmt->execute();
 
-while($row = $stmt->fetch(PDO::FETCH_ASSOC)){
-	$stmt2 = $libDb->prepare('SELECT COUNT(*) AS number FROM base_veranstaltung_teilnahme WHERE person=:person AND veranstaltung=:veranstaltung');
-	$stmt2->bindValue(':person', $libAuth->getId(), PDO::PARAM_INT);
-	$stmt2->bindValue(':veranstaltung', $row['id'], PDO::PARAM_INT);
-	$stmt2->execute();
-	$stmt2->bindColumn('number', $angemeldet);
-	$stmt2->fetch();
+while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+    $stmt2 = $libDb->prepare('SELECT COUNT(*) AS number FROM base_veranstaltung_teilnahme WHERE person=:person AND veranstaltung=:veranstaltung');
+    $stmt2->bindValue(':person', $libAuth->getId(), PDO::PARAM_INT);
+    $stmt2->bindValue(':veranstaltung', $row['id'], PDO::PARAM_INT);
+    $stmt2->execute();
+    $stmt2->bindColumn('number', $isRegistered);
+    $stmt2->fetch();
 
-	$title = $row['titel'];
-	$url = 'index.php?pid=event&amp;id=' .$row['id'];
-	$form = '';
-	$description = '';
+    $title = $row['titel'];
+    $url = 'index.php?pid=event&amp;id=' .$row['id'];
+    $form = '';
+    $description = '';
 
-	/*
-	* thumbnail
-	*/
-	if($libGallery->hasPictures($row['id'], 1)){
-		$description .= '<div class="thumbnail mb-2">';
-		$description .= '<div class="img-frame">';
-		$description .= '<a href="index.php?pid=event&amp;id=' .$row['id']. '">';
-		$description .= '<img src="api.php?iid=event_picture&amp;eventid=' .$row['id']. '&amp;id=' .$libGallery->getFirstVisiblePictureId($row['id'], 1). '" alt="" />';
-		$description .= '</a>';
-		$description .= '</div>';
-		$description .= '</div>';
-	}
+    /*
+    * card card-img
+    */
+    if ($libGallery->hasPictures($row['id'], 1)) {
+        $description .= '<div class="card card-img mb-2">';
+        $description .= '<div class="img-frame">';
+        $description .= '<a href="index.php?pid=event&amp;id=' .$row['id']. '">';
+        $description .= '<img src="api.php?iid=event_picture&amp;eventid=' .$row['id']. '&amp;id=' .$libGallery->getFirstVisiblePictureId($row['id'], 1). '" alt="" />';
+        $description .= '</a>';
+        $description .= '</div>';
+        $description .= '</div>';
+    }
 
-	/*
-	* attend
-	*/
-	if(date('Y-m-d H:i:s') < $row['datum']){
-		$form .= '<form action="index.php?pid=intranet_home" method="post" class="form-horizontal">';
-		$form .= '<input type="hidden" name="eventid" value="' .$row['id']. '" />';
+    /*
+    * attend
+    */
+    if (date('Y-m-d H:i:s') < $row['datum']) {
+        $form .= '<form action="index.php?pid=intranet_home" method="post">';
+        $form .= '<input type="hidden" name="eventid" value="' .$row['id']. '" />';
+        $form .= '<input type="hidden" name="semester" value="' .$libGlobal->semester. '" />';
 
-		if($angemeldet){
-			$form .= '<input type="hidden" name="veranstaltungenchangeanmeldenstate" value="abmelden" />';
-			$form .= '<button type="submit" class="btn btn-default btn-sm">';
-			$form .= '<i class="fa fa-check-square-o" aria-hidden="true"></i> Abmelden';
-			$form .= '</button>';
-		} else {
-			$form .= '<input type="hidden" name="veranstaltungenchangeanmeldenstate" value="anmelden" />';
-			$form .= '<button type="submit" class="btn btn-default btn-sm">';
-			$form .= '<i class="fa fa-square-o" aria-hidden="true"></i> Anmelden';
-			$form .= '</button>';
-		}
+        if ($isRegistered) {
+            $form .= '<input type="hidden" name="eventsChangeRegistrationState" value="unregister" />';
+            $form .= '<button type="submit" class="btn btn-outline-secondary btn-sm">';
+            $form .= '<i class="fa fa-check-square-o" aria-hidden="true"></i> Abmelden';
+            $form .= '</button>';
+        } else {
+            $form .= '<input type="hidden" name="eventsChangeRegistrationState" value="register" />';
+            $form .= '<button type="submit" class="btn btn-outline-secondary btn-sm">';
+            $form .= '<i class="fa fa-square-o" aria-hidden="true"></i> Anmelden';
+            $form .= '</button>';
+        }
 
-		$form .= '</form>';
-	} else {
-		if($angemeldet){
-			$description .= '<i class="fa fa-check-square-o" aria-hidden="true"></i> angemeldet';
-		} else {
-			$description .= '<i class="fa fa-square-o" aria-hidden="true"></i> nicht angemeldet';
-		}
-	}
+        $form .= '</form>';
+    } else {
+        if ($isRegistered) {
+            $description .= '<i class="fa fa-check-square-o" aria-hidden="true"></i> angemeldet';
+        } else {
+            $description .= '<i class="fa fa-square-o" aria-hidden="true"></i> nicht angemeldet';
+        }
+    }
 
-	$timelineEvent = new LibEventTimelineEvent();
-	$timelineEvent->setTitle($title);
-	$timelineEvent->setDatetime($row['datum']);
-	$timelineEvent->setUrl($url);
-	$timelineEvent->setDescription($description);
-	$timelineEvent->setForm($form);
-	$timelineEventSet->addEvent($timelineEvent);
+    $timelineEvent = new LibEventTimelineEvent();
+    $timelineEvent->setTitle($title);
+    $timelineEvent->setDatetime($row['datum']);
+    $timelineEvent->setUrl($url);
+    $timelineEvent->setDescription($description);
+    $timelineEvent->setForm($form);
+    $timelineEventSet->addEvent($timelineEvent);
 }

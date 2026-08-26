@@ -1,4 +1,5 @@
 <?php
+
 /*
 This file is part of VCMS.
 
@@ -16,52 +17,56 @@ You should have received a copy of the GNU General Public License
 along with VCMS. If not, see <http://www.gnu.org/licenses/>.
 */
 
-if(!is_object($libGlobal) || !$libAuth->isLoggedin())
-	exit();
+if (!is_object($libGlobal) || !$libAuth->isLoggedin()) {
+    exit();
+}
 
 
-class LibWeddingTimelineEvent extends \vcms\timeline\LibTimelineEvent{
-	function getBadgeClass(){
-		return 'wedding';
-	}
+class LibWeddingTimelineEvent extends \vcms\timeline\LibTimelineEvent
+{
+    public function getBadgeClass()
+    {
+        return 'wedding';
+    }
 
-	function getBadgeIcon(){
-		return '<i class="fa fa-circle-o" aria-hidden="true" style="margin-right:-0.2em"></i><i class="fa fa-circle-o" aria-hidden="true" style="margin-left:-0.2em"></i>';
-	}
+    public function getBadgeIcon()
+    {
+        return '<i class="fa fa-circle-o" aria-hidden="true" style="margin-right:-0.2em"></i><i class="fa fa-circle-o" aria-hidden="true" style="margin-left:-0.2em"></i>';
+    }
 }
 
 
 $stmt = $libDb->prepare("SELECT id, heirat_datum, heirat_partner FROM base_person WHERE (gruppe='P' OR gruppe='B' OR gruppe='F') AND heirat_datum != '' AND heirat_datum != '0000-00-00' AND DATEDIFF(heirat_datum, :semesterstart) >= 0 AND DATEDIFF(heirat_datum, :semesterende) <= 0 ORDER BY heirat_datum");
-$stmt->bindValue(':semesterstart', $zeitraum[0]);
-$stmt->bindValue(':semesterende', $zeitraum[1]);
+$stmt->bindValue(':semesterstart', $period[0]);
+$stmt->bindValue(':semesterende', $period[1]);
 $stmt->execute();
 
-while($row = $stmt->fetch(PDO::FETCH_ASSOC)){
-	$title = 'Trauung von ' .$libPerson->getNameString($row['id'], 0);
+while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+    $title = 'Trauung von ' .$libPerson->getNameString($row['id'], 0);
 
-	$description = $libPerson->getNameString($row['id'], 0);
-	$description .= ' ';
-	$description .= '<i class="fa fa-circle-o" aria-hidden="true" style="margin-right:-0.2em"></i>';
-	$description .= '<i class="fa fa-circle-o" aria-hidden="true" style="margin-left:-0.2em"></i>';
+    $description = $libString->protectXSS($libPerson->getNameString($row['id'], 0));
+    $description .= ' ';
+    $description .= '<i class="fa fa-circle-o" aria-hidden="true" style="margin-right:-0.2em"></i>';
+    $description .= '<i class="fa fa-circle-o" aria-hidden="true" style="margin-left:-0.2em"></i>';
 
-	if($row['heirat_partner'] != '' && is_numeric($row['heirat_partner'])){
-		$urlPartner = 'index.php?pid=intranet_person&amp;id=' .$row['heirat_partner'];
+    if ($row['heirat_partner'] != '' && is_numeric($row['heirat_partner'])) {
+        $urlPartner = 'index.php?pid=intranet_person&amp;id=' .$row['heirat_partner'];
 
-		$description .= ' ';
-		$description .= '<a href="' .$urlPartner. '">';
-		$description .= $libPerson->getNameString($row['heirat_partner'], 0);
-		$description .= '</a>';
-	}
+        $description .= ' ';
+        $description .= '<a href="' .$urlPartner. '">';
+        $description .= $libString->protectXSS($libPerson->getNameString($row['heirat_partner'], 0));
+        $description .= '</a>';
+    }
 
-	$url = 'index.php?pid=intranet_person&amp;id=' .$row['id'];
+    $url = 'index.php?pid=intranet_person&amp;id=' .$row['id'];
 
-	$timelineEvent = new LibWeddingTimelineEvent();
+    $timelineEvent = new LibWeddingTimelineEvent();
 
-	$timelineEvent->setTitle($title);
-	$timelineEvent->setDatetime($row['heirat_datum']);
-	$timelineEvent->setUrl($url);
-	$timelineEvent->setDescription($description);
-	$timelineEvent->setReferencedPersonId($row['id']);
+    $timelineEvent->setTitle($title);
+    $timelineEvent->setDatetime($row['heirat_datum']);
+    $timelineEvent->setUrl($url);
+    $timelineEvent->setDescription($description);
+    $timelineEvent->setReferencedPersonId($row['id']);
 
-	$timelineEventSet->addEvent($timelineEvent);
+    $timelineEventSet->addEvent($timelineEvent);
 }

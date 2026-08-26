@@ -1,4 +1,5 @@
 <?php
+
 /*
 This file is part of VCMS.
 
@@ -18,58 +19,65 @@ along with VCMS. If not, see <http://www.gnu.org/licenses/>.
 
 namespace vcms\module;
 
-class LibAccessRestriction{
-	var $gruppen;
-	var $aemter;
+class LibAccessRestriction
+{
+    public $groups;
+    public $offices;
 
-	function __construct($gruppen, $aemter){
-		$this->gruppen = $gruppen;
-		$this->aemter = $aemter;
-	}
+    public function __construct($groups, $offices)
+    {
+        $this->groups = $groups;
+        $this->offices = $offices;
+    }
 
-	function getGruppen(){
-		return $this->gruppen;
-	}
+    public function getGroups()
+    {
+        return $this->groups;
+    }
 
-	function getAemter(){
-		return $this->aemter;
-	}
+    public function getOffices()
+    {
+        return $this->offices;
+    }
 
-	function hasGruppenRestriction(){
-		return is_array($this->gruppen) && count($this->gruppen) > 0;
-	}
+    public function hasGroupsRestriction()
+    {
+        return is_array($this->groups) && count($this->groups) > 0;
+    }
 
-	function hasAemterRestriction(){
-		return is_array($this->aemter) && count($this->aemter) > 0;
-	}
+    public function hasOfficesRestriction()
+    {
+        return is_array($this->offices) && count($this->offices) > 0;
+    }
 
-	function isFulfilledBy($gruppe, $aemter){
-		$gruppenOk = false;
+    public function isFulfilledBy($group, $offices)
+    {
+        $groupsOk = false;
 
-		//should this restriction be restricted by group membership?
-		if(is_array($this->gruppen) && count($this->gruppen) > 0){
-			if(in_array($gruppe, $this->gruppen)){
-				$gruppenOk = true;
-			}
-		} else {
-			$gruppenOk = true;
-		}
+        //should this restriction be restricted by group membership?
+        if (is_array($this->groups) && count($this->groups) > 0) {
+            if (in_array($group, $this->groups)) {
+                $groupsOk = true;
+            }
+        } else {
+            $groupsOk = true;
+        }
 
-		$aemterOk = false;
+        $officesOk = false;
 
-		//should this restriction be restricted by function?
-		if(is_array($this->aemter) && count($this->aemter) > 0){
-			if(is_array($aemter)){
-				foreach($aemter as $amt){
-					if(in_array($amt, $this->aemter)){
-						$aemterOk = true;
-					}
-				}
-			}
-		} else {
-			$aemterOk = true;
-		}
+        //should this restriction be restricted by function?
+        if (is_array($this->offices) && count($this->offices) > 0) {
+            if (is_array($offices)) {
+                foreach ($offices as $office) {
+                    if (in_array($office, $this->offices)) {
+                        $officesOk = true;
+                    }
+                }
+            }
+        } else {
+            $officesOk = true;
+        }
 
-		return $gruppenOk && $aemterOk;
-	}
+        return $groupsOk && $officesOk;
+    }
 }

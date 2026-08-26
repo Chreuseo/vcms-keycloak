@@ -1,94 +1,161 @@
 <?php
-class LibConfig{
-	var $mysqlServer = 'localhost';
-	var $mysqlUser = 'username';
-	var $mysqlPass = 'password';
-	var $mysqlDb = 'datenbankname';
-	var $mysqlPort = '3308';
 
-	var $verbindungName = 'K.St.V. Example';
-	var $verbindungDachverband = 'KV';
+class LibConfig
+{
+    public $mysqlServer = 'localhost';
+    public $mysqlUser = 'username';
+    public $mysqlPass = 'password';
+    public $mysqlDb = 'datenbankname';
+    public $mysqlPort = '';
 
-	var $verbindungZusatz = '';
-	var $verbindungStrasse = 'Musterstr. 20';
-	var $verbindungPlz = '12345';
-	var $verbindungOrt = 'Musterstadt';
-	var $verbindungLand = '';
-	var $verbindungTelefon = '+49 251 123456789';
+    public $verbindungName = 'K.St.V. Example';
+    public $verbindungDachverband = 'KV';
 
-	var $seiteBeschreibung = 'Katholischer Studentenverein Example im Kartellverband katholischer deutscher Studentenvereine (KV) zu Münster (Westf.)';
-	var $seiteKeywords = 'Studentenverbindung, Universität, Verbindung, Studentenverein, Student';
-	var $emailInfo = 'kontakt@example.net';
-	var $emailWebmaster = 'webmaster@example.net';
+    public $verbindungZusatz = '';
+    public $verbindungStrasse = 'Musterstr. 20';
+    public $verbindungPlz = '12345';
+    public $verbindungOrt = 'Musterstadt';
+    public $verbindungLand = '';
+    public $verbindungTelefon = '+49 251 123456789';
 
-	var $chargenSenior = 'x';
-	var $chargenJubelSenior = 'x';
-	var $chargenConsenior = 'vx';
-	var $chargenScriptor = 'xx';
-	var $chargenQuaestor = 'xxx';
-	var $chargenFuchsmajor = 'FM';
-	var $chargenFuchsmajor2 = 'FM 2';
-	var $chargenAHVSenior = 'AH-x';
-	var $chargenAHVConsenior = 'AH-vx';
-	var $chargenAHVKeilbeauftragter = 'K';
-	var $chargenAHVScriptor = 'AH-xx';
-	var $chargenAHVQuaestor = 'AH-xxx';
-	var $chargenHVVorsitzender = '';
-	var $chargenHVKassierer = '';
-	var $chargenArchivar = '';
-	var $chargenRedaktionswart = 'Red.';
-	var $chargenVOP = 'VOP';
-	var $chargenVVOP = 'VVOP';
-	var $chargenVOPxx = 'VOPxx';
-	var $chargenVOPxxx = 'VOPxxx';
-	var $chargenVOPxxxx = 'VOPxxxx';
+    public $seiteBeschreibung = 'Katholischer Studentenverein Example im Kartellverband katholischer deutscher Studentenvereine (KV) zu Münster (Westf.)';
+    public $seiteKeywords = 'Studentenverbindung, Universität, Verbindung, Studentenverein, Student';
+    public $emailInfo = 'kontakt@example.net';
+    public $emailWebmaster = 'webmaster@example.net';
 
-	/**
-	* Zeitzone, normalerweise unverändert
-	* Valide Werte unter http://www.php.net/manual/de/timezones.php
-	*/
-	var $timezone = 'Europe/Berlin';
+    public $chargenSenior = 'x';
+    public $chargenJubelSenior = 'x';
+    public $chargenConsenior = 'vx';
+    public $chargenScriptor = 'xx';
+    public $chargenQuaestor = 'xxx';
+    public $chargenFuchsmajor = 'FM';
+    public $chargenFuchsmajor2 = 'FM 2';
+    public $chargenAHVSenior = 'AH-x';
+    public $chargenAHVConsenior = 'AH-vx';
+    public $chargenAHVKeilbeauftragter = 'K';
+    public $chargenAHVScriptor = 'AH-xx';
+    public $chargenAHVQuaestor = 'AH-xxx';
+    public $chargenHVVorsitzender = '';
+    public $chargenHVKassierer = '';
+    public $chargenArchivar = '';
+    public $chargenRedaktionswart = 'Red.';
+    public $chargenVOP = 'VOP';
+    public $chargenVVOP = 'VVOP';
+    public $chargenVOPxx = 'VOPxx';
+    public $chargenVOPxxx = 'VOPxxx';
+    public $chargenVOPxxxx = 'VOPxxxx';
 
-	/**
-	* optionale Anpassungen
-	*/
-	var $defaultHome = 'home';
+    /**
+     * Timezone, normally unchanged
+     * Valid values at http://www.php.net/manual/de/timezones.php
+     */
+    public $timezone = 'Europe/Berlin';
 
-	// --- Keycloak Konfiguration (NEU) ---------------------------------------
-	// Aktiviert die JWT Keycloak Authentifizierung
-	var $keycloakEnabled = false; // auf true setzen um zu aktivieren
-	// Public Key (RSA) des Realms (ohne BEGIN/END nötig – wird ergänzt)
-	var $keycloakPublicKey = '';
-	// Erlaubte Issuer (Realm URL), leeres Array => keine Prüfung
-	var $keycloakAllowedIssuers = array(''); // z.B. array('https://sso.example.org/realms/Example')
-	// Erlaubte Audiences (Client IDs), leeres Array => keine Prüfung
-	var $keycloakAllowedAudiences = array(''); // z.B. array('vcms-frontend')
-	// Standardgruppe für neu angelegte Benutzer (muss existieren)
-	var $keycloakDefaultGroup = 'Y'; // vormals 'Aktiv' – jetzt Gruppe Y (Vereinsfreund)
-	// Optional: explizite Client-ID, falls sie nicht mit der Audience übereinstimmt
-	var $keycloakClientId = '';
-	// Optional: für vertrauliche Clients – leer lassen für Public Clients
-	var $keycloakClientSecret = '';
-	// Optional: Auth-Methode für vertrauliche Clients: 'post' (client_secret_post) oder 'basic' (client_secret_basic)
-	var $keycloakClientAuthMethod = 'post';
-	// -------------------------------------------------------------------------
+    /**
+     * Optional adjustments
+     */
+    public $defaultHome = 'home';
 
-	/*
-	* Standardmäßig liegt das Wintersemester im System von Oktober bis März und das Sommersemester von April bis Oktober.
-	* Normalerweise sind Anpassungen nicht nötig, sodass die weitere Beschreibung nur für folgenden Spezialfälle gilt:
-	* NUR FALLS SEMESTER IN ANDEREN MONATEN LIEGEN SOLLEN ODER ANDERE SEMESTER ALS WS & SS GEWÜNSCHT SIND,
-	* kann durch Entfernen der folgenden // konfiguriert werden, welche Semester in welchen Monaten liegen:
-	*
-	* Im Beispiel liegt seit dem Jahr 0 das Sommersemester (SS) von Monat 4 (April) bis Monat 9 (September) und
-	* das Wintersemester (WS) von Monat 10 (Oktober) bis Monat 3 (März), sowie seit dem Jahr 2008 der first term (FT)
-	* von Monat 1 (Januar) bis Monat 6 (Juni) und der second term (ST) von Monat 7 (Juli) bis Monat 12 (Dezember).
-	*
-	* Das Beispiel kann abgeändert werden: Weitere Jahre können hinzugefügt werden;
-	* Semesterpräfixe (SS, WS, FT, ST, ...) können geändert werden, dürfen aber nur aus GENAU 2 Zeichen aus a-z und A-Z
-	* bestehen. Jedes Jahr muss zudem GENAU 12 Monate bzw. 12 Semesterpräfixe enthalten! Das Jahr 0 muss vorhanden sein.
-	*/
-	//var $semestersConfig = array(
-	//	0 		=> array('WS', 'WS', 'WS', 'SS', 'SS', 'SS', 'SS', 'SS', 'SS', 'WS', 'WS', 'WS'),
-	//	2008 	=> array('FT', 'FT', 'FT', 'FT', 'FT', 'FT', 'ST', 'ST', 'ST', 'ST', 'ST', 'ST')
-	//);
+    // --- Keycloak configuration (kept for this fork) ------------------------
+    // Enable JWT Keycloak authentication
+    public $keycloakEnabled = false; // set to true to enable
+    // Public Key (RSA) of the realm (BEGIN/END will be added automatically if omitted)
+    public $keycloakPublicKey = '';
+    // Allowed issuers (realm URL), empty array => no check
+    public $keycloakAllowedIssuers = array(''); // e.g. array('https://sso.example.org/realms/Example')
+    // Allowed audiences (client IDs), empty array => no check
+    public $keycloakAllowedAudiences = array(''); // e.g. array('vcms-frontend')
+    // Default group for newly created users (must exist)
+    public $keycloakDefaultGroup = 'Y';
+    // Optional: explicit client id if it does not match the audience
+    public $keycloakClientId = '';
+    // Optional: for confidential clients – leave empty for public clients
+    public $keycloakClientSecret = '';
+    // Optional: auth method for confidential clients: 'post' (client_secret_post) or 'basic'
+    public $keycloakClientAuthMethod = 'post';
+    // -------------------------------------------------------------------------
+
+    //var $semestersConfig = array(
+    //    0       => array('WS', 'WS', 'WS', 'SS', 'SS', 'SS', 'SS', 'SS', 'SS', 'WS', 'WS', 'WS'),
+    //    2008    => array('FT', 'FT', 'FT', 'FT', 'FT', 'FT', 'ST', 'ST', 'ST', 'ST', 'ST', 'ST')
+    //);
 }
+
+<?php
+
+class LibConfig
+{
+    public $mysqlServer = 'localhost';
+    public $mysqlUser = 'username';
+    public $mysqlPass = 'password';
+    public $mysqlDb = 'datenbankname';
+    public $mysqlPort = '';
+
+    public $verbindungName = 'K.St.V. Example';
+    public $verbindungDachverband = 'KV';
+
+    public $verbindungZusatz = '';
+    public $verbindungStrasse = 'Musterstr. 20';
+    public $verbindungPlz = '12345';
+    public $verbindungOrt = 'Musterstadt';
+    public $verbindungLand = '';
+    public $verbindungTelefon = '+49 251 123456789';
+
+    public $seiteBeschreibung = 'Katholischer Studentenverein Example im Kartellverband katholischer deutscher Studentenvereine (KV) zu Münster (Westf.)';
+    public $seiteKeywords = 'Studentenverbindung, Universität, Verbindung, Studentenverein, Student';
+    public $emailInfo = 'kontakt@example.net';
+    public $emailWebmaster = 'webmaster@example.net';
+
+    public $chargenSenior = 'x';
+    public $chargenJubelSenior = 'x';
+    public $chargenConsenior = 'vx';
+    public $chargenScriptor = 'xx';
+    public $chargenQuaestor = 'xxx';
+    public $chargenFuchsmajor = 'FM';
+    public $chargenFuchsmajor2 = 'FM 2';
+    public $chargenAHVSenior = 'AH-x';
+    public $chargenAHVConsenior = 'AH-vx';
+    public $chargenAHVKeilbeauftragter = 'K';
+    public $chargenAHVScriptor = 'AH-xx';
+    public $chargenAHVQuaestor = 'AH-xxx';
+    public $chargenHVVorsitzender = '';
+    public $chargenHVKassierer = '';
+    public $chargenArchivar = '';
+    public $chargenRedaktionswart = 'Red.';
+    public $chargenVOP = 'VOP';
+    public $chargenVVOP = 'VVOP';
+    public $chargenVOPxx = 'VOPxx';
+    public $chargenVOPxxx = 'VOPxxx';
+    public $chargenVOPxxxx = 'VOPxxxx';
+
+    /**
+    * Timezone, normally unchanged
+    * Valid values at http://www.php.net/manual/de/timezones.php
+    */
+    public $timezone = 'Europe/Berlin';
+
+    /**
+    * Optional adjustments
+    */
+    public $defaultHome = 'home';
+
+    /*
+    * By default the winter semester runs from October to March and the summer semester from April to October.
+    * Normally no adjustments are needed; the further description only applies to the following special cases:
+    * ONLY IF SEMESTERS SHOULD LIE IN OTHER MONTHS OR SEMESTERS OTHER THAN WS & SS ARE WANTED,
+    * The following comment lines can be uncommented to configure which semesters lie in which months:
+    *
+    * In the example, since year 0 the summer semester (SS) runs from month 4 (April) to month 9 (September) and
+    * the winter semester (WS) from month 10 (October) to month 3 (March), and since 2008 the first term (FT)
+    * from month 1 (January) to month 6 (June) and the second term (ST) from month 7 (July) to month 12 (December).
+    *
+    * The example can be modified: further years can be added;
+    * Semester prefixes (SS, WS, FT, ST, ...) can be changed, but they may only consist of EXACTLY 2 characters from a-z and A-Z.
+    * Each year must also contain EXACTLY 12 months or 12 semester prefixes! Year 0 must be present.
+    */
+    //var $semestersConfig = array(
+    //	0 		=> array('WS', 'WS', 'WS', 'SS', 'SS', 'SS', 'SS', 'SS', 'SS', 'WS', 'WS', 'WS'),
+    //	2008 	=> array('FT', 'FT', 'FT', 'FT', 'FT', 'FT', 'ST', 'ST', 'ST', 'ST', 'ST', 'ST')
+    //);
+}
+>>>>>>> upstream/main

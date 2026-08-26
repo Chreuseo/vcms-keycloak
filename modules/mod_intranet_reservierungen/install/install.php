@@ -1,4 +1,5 @@
 <?php
+
 /*
 This file is part of VCMS.
 
@@ -16,15 +17,16 @@ You should have received a copy of the GNU General Public License
 along with VCMS. If not, see <http://www.gnu.org/licenses/>.
 */
 
-if(!is_object($libGlobal))
-	exit();
+if (!is_object($libGlobal)) {
+    exit();
+}
 
 
 echo 'Erstelle Tabelle mod_reservierung_reservierung<br />';
 
 $sql = "CREATE TABLE mod_reservierung_reservierung (
 	id int(11) NOT NULL auto_increment,
-	datum date NOT NULL default '0000-00-00',
+	datum date,
 	beschreibung text NOT NULL,
 	person int(11) NOT NULL default '0',
 	PRIMARY KEY  (id)

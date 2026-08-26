@@ -2,11 +2,10 @@
     "name": "vcms/vcms",
     "type": "project",
     "require": {
-        "bootstrap": "^3.3.6",
+        "bootstrap": "^5.3.3",
         "font-awesome": "^4.6.3",
-        "jquery": "^2.2.3",
-        "php": ">=5.5.0",
-        "phpmailer/phpmailer": "^6.4.1",
+        "php": ">=8.4",
+        "phpmailer/phpmailer": "^7.1.1",
         "nategood/httpful": "*"
     },
     "license": "GPL-3.0+"
