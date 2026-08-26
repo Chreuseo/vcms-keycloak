@@ -375,6 +375,7 @@ class LibAuth
 		$this->possibleGroups = array();
 		$stmt = $libDb->prepare('SELECT bezeichnung FROM base_gruppe');
 		$stmt->execute();
+		while($r = $stmt->fetch(PDO::FETCH_ASSOC)){
 			$this->possibleGroups[] = $r['bezeichnung'];
 		}
 		$defaultGroup = isset($libConfig->keycloakDefaultGroup) ? $libConfig->keycloakDefaultGroup : '';
