@@ -454,7 +454,16 @@ class LibAuth
 		$stmt->bindValue(':sem2',$libTime->getFollowingSemesterName());
 		$stmt->execute();
 		while($semRow = $stmt->fetch(PDO::FETCH_ASSOC)){
-			$possibleAemter = $libSecurityManager->getPossibleAemter();
+            $possibleAemter = array();
+            if (is_object($libSecurityManager)) {
+                if (method_exists($libSecurityManager, 'getPossibleAemter')) {
+                    $possibleAemter = $libSecurityManager->getPossibleAemter();
+                } elseif (method_exists($libSecurityManager, 'getPossibleOffices')) {
+                    $possibleAemter = $libSecurityManager->getPossibleOffices();
+                } elseif (isset($libSecurityManager->possibleOffices) && is_array($libSecurityManager->possibleOffices)) {
+                    $possibleAemter = $libSecurityManager->possibleOffices;
+                }
+            }
 			foreach($possibleAemter as $amt){ if(isset($semRow[$amt]) && $semRow[$amt]==$row['id']) $this->offices[]=$amt; }
 		}
 		$this->offices = array_unique($this->offices);
