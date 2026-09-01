@@ -139,6 +139,7 @@ if ((!isset($libConfig->keycloakEnabled) || !$libConfig->keycloakEnabled) && iss
 
     if ($isLoggedIn) {
         if (session_status() === PHP_SESSION_NONE) session_start();
+        session_regenerate_id(true);
         $_SESSION['libAuth'] = $libAuth;
     }
 }

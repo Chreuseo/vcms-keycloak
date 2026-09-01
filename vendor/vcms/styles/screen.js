@@ -86,8 +86,24 @@ function toggleNavbarState(){
 }
 
 function reveal(){
-	window.sr = ScrollReveal();
-  sr.reveal('.reveal', { scale: 1.0 });
+	var io = null;
+
+	var ioCallback = function(entries) {
+		entries.forEach(function(entry) {
+			if (entry.isIntersecting) {
+				entry.target.classList.add("inview");
+				io.unobserve(entry.target);
+			}
+		});
+	};
+
+	io = new IntersectionObserver(ioCallback);
+
+	var items = document.querySelectorAll(".reveal");
+
+	for (var i = 0; i < items.length; i++) {
+		io.observe(items[i]);
+	}
 }
 
 
