@@ -71,7 +71,7 @@ if (isset($_POST['action'])) {
     echo '</tr>';
     echo '</thead>';
 
-    $gitHubRepoUrl = 'https://github.com/uwol/vcms/tree/master';
+    $gitHubRepoUrl = 'https://github.com/Chreuseo/vcms-keycloak/tree/master';
     $modules = $libRepositoryClient->getModuleVersions();
 
     $actualEngineVersion = (float) $libGlobal->version;
